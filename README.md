@@ -1,2 +1,3 @@
-# qtext
-query the text
+# QText
+
+Query the text.

@@ -1,0 +1,44 @@
+[project]
+name = "qtext"
+dynamic = ["version"]
+description = "Query the text with keywords, vector similarity and other attributes."
+authors = [{ name = "Keming", email = "kemingy94@gmail.com" }]
+requires-python = ">=3.8"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Intended Audience :: Developers",
+]
+dependencies = [
+    "msgspec~=0.18.6",
+    "typing_extensions~=4.9.0",
+    "falcon~=3.1.1",
+    "psycopg[binary]~=3.1",
+    "uvicorn[standard]~=0.22",
+]
+[project.optional-dependencies]
+dev = [
+    "ruff~=0.2.2",
+    "pytest~=7.4",
+]
+[project.urls]
+"Homepage" = "https://github.com/kemingy/qtext"
+[project.scripts]
+
+[build-system]
+requires = ["setuptools", "setuptools_scm>=7.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["reranker"]
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0"
+
+[tool.ruff]
+target-version = "py38"
+[tool.ruff.lint]
+select = ["E", "F", "G", "B", "I", "SIM", "TID", "PL", "RUF"]
+ignore = ["E501"]
+[tool.ruff.lint.isort]
+known-first-party = ["qtext"]
