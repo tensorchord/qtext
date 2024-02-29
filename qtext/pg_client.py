@@ -6,19 +6,14 @@ from psycopg.adapt import Dumper, Loader
 from psycopg.types import TypeInfo
 
 from qtext.log import logger
-from qtext.spec import AddDocRequest, AddNamespaceRequest, QueryDocRequest
-
-DISTANCE_TO_METHOD = {
-    "euclidean": "vector_l2_ops",
-    "cosine": "vector_cos_ops",
-    "dot_product": "vector_dot_ops",
-}
-
-DISTANCE_TO_OP = {
-    "euclidean": "<->",
-    "cosine": "<=>",
-    "dot_product": "<#>",
-}
+from qtext.spec import (
+    DISTANCE_TO_METHOD,
+    DISTANCE_TO_OP,
+    AddDocRequest,
+    AddNamespaceRequest,
+    DocResponse,
+    QueryDocRequest,
+)
 
 
 class VectorDumper(Dumper):
@@ -74,7 +69,7 @@ class PgVectorsClient:
     def close(self):
         self.conn.close()
 
-    def add_namespace(self, req: AddNamespaceRequest):
+    def add_namespace(self, req: AddNamespaceRequest) -> Exception | None:
         try:
             self.conn.execute(
                 f"""CREATE TABLE IF NOT EXISTS {req.name} (
@@ -91,10 +86,13 @@ class PgVectorsClient:
                     )
                     """
             )
-            self.conn.commit()
+            self.conn.execute(
+                f"ALTER TABLE {req.name} ADD COLUMN fts_vector tsvector GENERATED "
+                "ALWAYS AS (to_tsvector('english', text)) stored;"
+            )
             self.conn.execute(
                 (
-                    f"CREATE INDEX IF NOT EXISTS {req.name}_vectors ON {req.name}"
+                    f"CREATE INDEX IF NOT EXISTS {req.name}_vectors ON {req.name} "
                     f"USING vectors (emb {DISTANCE_TO_METHOD[req.distance]});"
                 )
             )
@@ -102,13 +100,23 @@ class PgVectorsClient:
         except psycopg.errors.Error as err:
             logger.info("pg client add table error", exc_info=err)
             self.conn.rollback()
-            self.conn = self.connect()
+            return err
 
-    def add_doc(self, req: AddDocRequest):
+    def add_doc(self, req: AddDocRequest) -> None | Exception:
         try:
-            self.conn.execute(
-                f"""INSERT INTO {req.namespace} (id, emb, text, title, summary, author, updated_at, tags, score, boost)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)""",
+            attributes = [
+                "id",
+                "emb",
+                "text",
+                "title",
+                "summary",
+                "author",
+                "updated_at",
+                "tags",
+                "score",
+                "boost",
+            ]
+            placeholders = [
                 req.doc_id,
                 req.vector,
                 req.text,
@@ -119,25 +127,54 @@ class PgVectorsClient:
                 req.tags,
                 req.score,
                 req.boost,
+            ]
+            if req.doc_id is None:
+                attributes.pop(0)
+                placeholders.pop(0)
+            self.conn.execute(
+                (
+                    f"INSERT INTO {req.namespace} ({','.join(attributes)})"
+                    f"VALUES ({','.join(['%s']*len(placeholders))})"
+                ),
+                placeholders,
             )
             self.conn.commit()
         except psycopg.errors.Error as err:
             logger.info("pg client add doc error", exc_info=err)
             self.conn.rollback()
-            self.conn = self.connect()
+            return err
 
-    def query_doc(self, req: QueryDocRequest):
-        # TODO: get the table index distance
-        op = DISTANCE_TO_OP["cosine"]
+    def query_text(self, req: QueryDocRequest) -> list[DocResponse] | Exception:
         try:
-            # TODO: filter
             cursor = self.conn.execute(
-                f"SELECT *, emb {op} %s AS score FROM {req.namespace} ORDER by score LIMIT %s",
-                req.vector,
-                req.limit,
+                (
+                    "SELECT id, text, emb, score, boost, title, summary, author,"
+                    "updated_at, tags, ts_rank_cd(fts_vector, query) AS rank "
+                    f"FROM {req.namespace}, to_tsquery(%s) query "
+                    "WHERE query @@ fts_vector order by rank desc LIMIT %s"
+                ),
+                (" | ".join(req.query.strip().split(" ")), req.limit),
             )
         except psycopg.errors.Error as err:
             logger.info("pg client query error", exc_info=err)
             self.conn.rollback()
-            self.conn = self.connect()
-        return cursor.fetchall()
+            return err
+        return [DocResponse.from_query_result(res) for res in cursor.fetchall()]
+
+    def query_vector(self, req: QueryDocRequest) -> list[DocResponse] | Exception:
+        op = DISTANCE_TO_OP[req.distance]
+        try:
+            # TODO: filter
+            cursor = self.conn.execute(
+                (
+                    "SELECT id, text, emb, score, boost, title, summary, author,"
+                    f"updated_at, tags, emb {op} %s AS distance "
+                    f"FROM {req.namespace} ORDER by distance LIMIT %s"
+                ),
+                (req.vector, req.limit),
+            )
+        except psycopg.errors.Error as err:
+            logger.info("pg client query error", exc_info=err)
+            self.conn.rollback()
+            return None
+        return [DocResponse.from_query_result(res) for res in cursor.fetchall()]

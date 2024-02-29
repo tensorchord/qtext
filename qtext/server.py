@@ -4,8 +4,9 @@ import falcon
 import msgspec
 from falcon import App, Request, Response
 
+from qtext.engine import RetrievalEngine
 from qtext.log import logger
-from qtext.spec import AddDocRequest, NamespaceRequest, QueryDocRequest
+from qtext.spec import AddDocRequest, AddNamespaceRequest, QueryDocRequest
 
 
 def validate_request(spec: type[msgspec.Struct], req: Request, resp: Response):
@@ -41,31 +42,47 @@ class HealthCheck:
 
 
 class DocResource:
+    def __init__(self, engine: RetrievalEngine) -> None:
+        self.engine = engine
+
     def on_post(self, req: Request, resp: Response):
         request = validate_request(AddDocRequest, req, resp)
         if request is None:
             return
 
+        self.engine.add_doc(request)
+
 
 class QueryResource:
+    def __init__(self, engine: RetrievalEngine) -> None:
+        self.engine = engine
+
     def on_post(self, req: Request, resp: Response):
         request = validate_request(QueryDocRequest, req, resp)
         if request is None:
             return
 
+        docs = self.engine.query(request)
+        resp.data = msgspec.json.encode(docs)
+        resp.content_type = falcon.MEDIA_JSON
+
 
 class NamespaceResource:
+    def __init__(self, engine: RetrievalEngine) -> None:
+        self.engine = engine
+
     def on_post(self, req: Request, resp: Response):
-        request = validate_request(NamespaceRequest, req, resp)
+        request = validate_request(AddNamespaceRequest, req, resp)
         if request is None:
             return
+        self.engine.add_namespace(request)
 
 
-def create_app() -> App:
+def create_app(engine: RetrievalEngine) -> App:
     app = App()
     app.add_route("/", HealthCheck())
-    app.add_route("/api/namespace", NamespaceResource())
-    app.add_route("/api/doc", DocResource())
-    app.add_route("/api/query", QueryResource())
+    app.add_route("/api/namespace", NamespaceResource(engine))
+    app.add_route("/api/doc", DocResource(engine))
+    app.add_route("/api/query", QueryResource(engine))
     app.add_error_handler(Exception, uncaught_exception_handler)
     return app
