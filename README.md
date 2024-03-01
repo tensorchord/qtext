@@ -1,3 +1,4 @@
 # QText
 
-Query the text.
+End-to-end service to query the text.
+
