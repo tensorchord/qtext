@@ -69,7 +69,7 @@ class PgVectorsClient:
     def close(self):
         self.conn.close()
 
-    def add_namespace(self, req: AddNamespaceRequest) -> Exception | None:
+    def add_namespace(self, req: AddNamespaceRequest):
         try:
             self.conn.execute(
                 f"""CREATE TABLE IF NOT EXISTS {req.name} (
@@ -100,9 +100,9 @@ class PgVectorsClient:
         except psycopg.errors.Error as err:
             logger.info("pg client add table error", exc_info=err)
             self.conn.rollback()
-            return err
+            raise RuntimeError("add namespace error") from err
 
-    def add_doc(self, req: AddDocRequest) -> None | Exception:
+    def add_doc(self, req: AddDocRequest):
         try:
             attributes = [
                 "id",
@@ -142,9 +142,9 @@ class PgVectorsClient:
         except psycopg.errors.Error as err:
             logger.info("pg client add doc error", exc_info=err)
             self.conn.rollback()
-            return err
+            raise RuntimeError("add doc error") from err
 
-    def query_text(self, req: QueryDocRequest) -> list[DocResponse] | Exception:
+    def query_text(self, req: QueryDocRequest) -> list[DocResponse]:
         try:
             cursor = self.conn.execute(
                 (
@@ -158,10 +158,10 @@ class PgVectorsClient:
         except psycopg.errors.Error as err:
             logger.info("pg client query error", exc_info=err)
             self.conn.rollback()
-            return err
+            raise RuntimeError("query text error") from err
         return [DocResponse.from_query_result(res) for res in cursor.fetchall()]
 
-    def query_vector(self, req: QueryDocRequest) -> list[DocResponse] | Exception:
+    def query_vector(self, req: QueryDocRequest) -> list[DocResponse]:
         op = DISTANCE_TO_OP[req.distance]
         try:
             # TODO: filter
@@ -176,5 +176,5 @@ class PgVectorsClient:
         except psycopg.errors.Error as err:
             logger.info("pg client query error", exc_info=err)
             self.conn.rollback()
-            return None
+            raise RuntimeError("query vector error") from err
         return [DocResponse.from_query_result(res) for res in cursor.fetchall()]

@@ -17,16 +17,12 @@ class RetrievalEngine:
         )
 
     def add_namespace(self, req: AddNamespaceRequest) -> None:
-        err = self.pg_client.add_namespace(req)
-        if err is not None:
-            raise err
+        self.pg_client.add_namespace(req)
 
     def add_doc(self, req: AddDocRequest) -> None:
         if not req.vector:
             req.vector = self.emb_client.embedding(req.text)
-        err = self.pg_client.add_doc(req)
-        if err is not None:
-            raise err
+        self.pg_client.add_doc(req)
 
     def query(self, req: QueryDocRequest) -> list[DocResponse] | Exception:
         kw_results = self.pg_client.query_text(req)
