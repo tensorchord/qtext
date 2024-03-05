@@ -15,6 +15,7 @@ class RetrievalEngine:
             endpoint=config.embedding.api_endpoint,
             timeout=config.embedding.timeout,
         )
+        self.ranker = config.ranker.ranker(**config.ranker.params)
 
     def add_namespace(self, req: AddNamespaceRequest) -> None:
         self.pg_client.add_namespace(req)
@@ -24,10 +25,14 @@ class RetrievalEngine:
             req.vector = self.emb_client.embedding(req.text)
         self.pg_client.add_doc(req)
 
-    def query(self, req: QueryDocRequest) -> list[DocResponse] | Exception:
+    def query(self, req: QueryDocRequest) -> list[DocResponse]:
         kw_results = self.pg_client.query_text(req)
         if not req.vector:
             req.vector = self.emb_client.embedding(req.query)
         vec_results = self.pg_client.query_vector(req)
         id2doc = {doc.id: doc for doc in kw_results + vec_results}
-        return list(id2doc.values())
+        ranked = self.ranker.rank(
+            req.to_record(),
+            [doc.to_record() for doc in id2doc.values()],
+        )
+        return [DocResponse.from_record(record) for record in ranked]

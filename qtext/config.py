@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Type
 
 import msgspec
+from reranker import HybridRanker, Ranker
 
 
 class ServerConfig(msgspec.Struct, kw_only=True, frozen=True):
@@ -22,7 +23,13 @@ class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
     timeout: int = 300
 
 
+class RankConfig(msgspec.Struct, kw_only=True, frozen=True):
+    ranker: Type[Ranker] = HybridRanker
+    params: dict[str, str] = msgspec.field(default_factory=dict)
+
+
 class Config(msgspec.Struct, kw_only=True, frozen=True):
     server: ServerConfig = ServerConfig()
     vector_store: VectorStoreConfig = VectorStoreConfig()
     embedding: EmbeddingConfig = EmbeddingConfig()
+    ranker: RankConfig = RankConfig()

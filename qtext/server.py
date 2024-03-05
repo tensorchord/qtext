@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import falcon
 import msgspec
+from defspec import OpenAPI, RenderTemplate
 from falcon import App, Request, Response
 
 from qtext.engine import RetrievalEngine
 from qtext.log import logger
-from qtext.spec import AddDocRequest, AddNamespaceRequest, QueryDocRequest
+from qtext.spec import AddDocRequest, AddNamespaceRequest, DocResponse, QueryDocRequest
 
 
 def validate_request(spec: type[msgspec.Struct], req: Request, resp: Response):
@@ -78,11 +79,56 @@ class NamespaceResource:
         self.engine.add_namespace(request)
 
 
+class OpenAPIResource:
+    def __init__(self):
+        self.openapi = OpenAPI()
+        self.openapi.register_route(
+            "/api/namespace",
+            "post",
+            "Create a namespace",
+            request_type=AddNamespaceRequest,
+        )
+        self.openapi.register_route(
+            "/api/doc", "post", "Add a document", request_type=AddDocRequest
+        )
+        self.openapi.register_route(
+            "/api/query",
+            "post",
+            "Get the similar documents",
+            request_type=QueryDocRequest,
+            response_type=list[DocResponse],
+        )
+        self.spec = self.openapi.to_json()
+
+    def on_get(self, req: Request, resp: Response):
+        resp.content_type = falcon.MEDIA_JSON
+        resp.data = self.spec
+
+
+class OpenAPIRender:
+    def __init__(self, spec_url: str, template: RenderTemplate) -> None:
+        self.template = template.value.format(spec_url=spec_url)
+
+    def on_get(self, req: Request, resp: Response):
+        resp.content_type = falcon.MEDIA_HTML
+        resp.text = self.template
+
+
 def create_app(engine: RetrievalEngine) -> App:
     app = App()
     app.add_route("/", HealthCheck())
     app.add_route("/api/namespace", NamespaceResource(engine))
     app.add_route("/api/doc", DocResource(engine))
     app.add_route("/api/query", QueryResource(engine))
+    app.add_route("/openapi/spec.json", OpenAPIResource())
+    app.add_route(
+        "/openapi/swagger", OpenAPIRender("/openapi/spec.json", RenderTemplate.SWAGGER)
+    )
+    app.add_route(
+        "/openapi/redoc", OpenAPIRender("/openapi/spec.json", RenderTemplate.REDOC)
+    )
+    app.add_route(
+        "/openapi/scalar", OpenAPIRender("/openapi/spec.json", RenderTemplate.SCALAR)
+    )
     app.add_error_handler(Exception, uncaught_exception_handler)
     return app

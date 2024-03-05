@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Literal
 
 import msgspec
+from reranker import Record
 
 DISTANCE = Literal["cosine", "inner_product", "euclidean"]
 
@@ -66,6 +67,37 @@ class DocResponse(msgspec.Struct, frozen=True, kw_only=True):
             type=cls,
         )
 
+    def to_record(self) -> Record:
+        return Record(
+            id=self.id,
+            text=self.text,
+            vector=self.vector,
+            vector_sim=self.similarity,
+            score=self.score,
+            boost=self.boost,
+            title=self.title,
+            summary=self.summary,
+            author=self.author,
+            updated_at=self.updated_at,
+            tags=self.tags,
+        )
+
+    @classmethod
+    def from_record(cls, record: Record) -> DocResponse:
+        return cls(
+            id=record.id,
+            text=record.text,
+            vector=record.vector,
+            similarity=record.vector_sim,
+            score=record.score,
+            boost=record.boost,
+            title=record.title,
+            summary=record.summary,
+            author=record.author,
+            updated_at=record.updated_at,
+            tags=record.tags,
+        )
+
 
 class QueryDocRequest(msgspec.Struct, kw_only=True):
     namespace: str
@@ -74,6 +106,12 @@ class QueryDocRequest(msgspec.Struct, kw_only=True):
     vector: list[float] | None = None
     metadata: dict | None = None
     distance: DISTANCE = "cosine"
+
+    def to_record(self) -> Record:
+        return Record(
+            text=self.query,
+            vector=self.vector,
+        )
 
 
 class AddNamespaceRequest(msgspec.Struct, frozen=True, kw_only=True):
