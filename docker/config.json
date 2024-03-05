@@ -1,0 +1,11 @@
+{
+    "vector_store": {
+        "url": "postgresql://postgres:password@pg:5432/"
+    },
+    "embedding": {
+        "api_endpoint": "http://emb:8000"
+    },
+    "highlight": {
+        "addr": "http://highlight:8000"
+    }
+}

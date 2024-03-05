@@ -7,7 +7,14 @@ from falcon import App, Request, Response
 
 from qtext.engine import RetrievalEngine
 from qtext.log import logger
-from qtext.spec import AddDocRequest, AddNamespaceRequest, DocResponse, QueryDocRequest
+from qtext.spec import (
+    AddDocRequest,
+    AddNamespaceRequest,
+    DocResponse,
+    HighlightRequest,
+    HighlightResponse,
+    QueryDocRequest,
+)
 
 
 def validate_request(spec: type[msgspec.Struct], req: Request, resp: Response):
@@ -40,6 +47,7 @@ class HealthCheck:
     def on_get(self, req: Request, resp: Response):
         resp.status = falcon.HTTP_200
         resp.content_type = falcon.MEDIA_TEXT
+        resp.text = "Check the OpenAPI spec at `/openapi/redoc`"
 
 
 class DocResource:
@@ -79,6 +87,19 @@ class NamespaceResource:
         self.engine.add_namespace(request)
 
 
+class HighlightResource:
+    def __init__(self, engine: RetrievalEngine) -> None:
+        self.engine = engine
+
+    def on_post(self, req: Request, resp: Response):
+        request = validate_request(HighlightRequest, req, resp)
+        if request is None:
+            return
+
+        resp.data = msgspec.json.encode(self.engine.highlight(request))
+        resp.content_type = falcon.MEDIA_JSON
+
+
 class OpenAPIResource:
     def __init__(self):
         self.openapi = OpenAPI()
@@ -97,6 +118,13 @@ class OpenAPIResource:
             "Get the similar documents",
             request_type=QueryDocRequest,
             response_type=list[DocResponse],
+        )
+        self.openapi.register_route(
+            "/api/highlight",
+            "post",
+            "Highlight the semantic similar words in the documents according to the query",
+            request_type=HighlightRequest,
+            response_type=HighlightResponse,
         )
         self.spec = self.openapi.to_json()
 
@@ -120,6 +148,7 @@ def create_app(engine: RetrievalEngine) -> App:
     app.add_route("/api/namespace", NamespaceResource(engine))
     app.add_route("/api/doc", DocResource(engine))
     app.add_route("/api/query", QueryResource(engine))
+    app.add_route("/api/highlight", HighlightResource(engine))
     app.add_route("/openapi/spec.json", OpenAPIResource())
     app.add_route(
         "/openapi/swagger", OpenAPIRender("/openapi/spec.json", RenderTemplate.SWAGGER)

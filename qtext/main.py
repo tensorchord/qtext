@@ -8,6 +8,8 @@ from qtext.server import create_app
 
 def run():
     logger.info("starting the server")
-    engine = RetrievalEngine(Config())
+    config = Config.with_config_file()
+    logger.info(config)
+    engine = RetrievalEngine(config=config)
     app = create_app(engine)
     waitress.serve(app, host="0.0.0.0", port=8000)

@@ -2,19 +2,23 @@ services:
   emb:
     image: "kemingy/mosec-emb-cpu"
     environment:
-      - MOSEC_PORT=8080
       - MOSEC_TIMEOUT=30000
     ports:
-      - "8080:8080"
+      - "8080:8000"
 
   pg:
-    image: "tensorchord/pgvecto-rs:pg16-v0.2.0"
+    image: "tensorchord/pgvecto-rs:pg15-v0.2.0"
     environment:
       - POSTGRES_PASSWORD=password
     ports:
       - "5432:5432"
     volumes:
-      - "/tmp/pgdata:/var/lib/postgresql/data"
+      - "/tmp/qtext_pgdata:/var/lib/postgresql/data"
+
+  colbert:
+    image: "kemingy/colbert-highlight"
+    ports:
+      - "8081:8000"
 
   server:
     build:
@@ -25,3 +29,4 @@ services:
     depends_on:
       - pg
       - emb
+      - colbert
