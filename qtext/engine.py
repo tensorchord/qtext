@@ -39,11 +39,15 @@ class RetrievalEngine:
         if not req.vector:
             req.vector = self.emb_client.embedding(req.query)
         vec_results = self.pg_client.query_vector(req)
-        id2doc = {doc.id: doc for doc in kw_results + vec_results}
-        ranked = self.ranker.rank(
-            req.to_record(),
-            [doc.to_record() for doc in id2doc.values()],
-        )
+        # combine the results
+        id2docs = {vec.id: vec.to_record() for vec in vec_results}
+        for kw in kw_results:
+            if kw.id not in id2docs:
+                id2docs[kw.id] = kw.to_record()
+            else:
+                id2docs[kw.id].content_bm25 = kw.similarity
+
+        ranked = self.ranker.rank(req.to_record(), list(id2docs.values()))
         return [DocResponse.from_record(record) for record in ranked]
 
     def highlight(self, req: HighlightRequest) -> HighlightResponse:

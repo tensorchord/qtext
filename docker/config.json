@@ -6,6 +6,6 @@
         "api_endpoint": "http://emb:8000"
     },
     "highlight": {
-        "addr": "http://highlight:8000"
+        "addr": "http://colbert:8000"
     }
 }

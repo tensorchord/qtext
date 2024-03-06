@@ -3,6 +3,7 @@ from __future__ import annotations
 import httpx
 import msgspec
 
+from qtext.log import logger
 from qtext.spec import HighlightScore
 
 
@@ -14,7 +15,13 @@ class HighlightClient:
         self, query: str, docs: list[str]
     ) -> list[list[HighlightScore]]:
         resp = self.client.post("/inference", json=[query, *docs])
-        resp.raise_for_status()
+        if resp.is_error:
+            logger.info(
+                "failed to call the highlight service [%d], %s",
+                resp.status_code,
+                resp.content,
+            )
+            resp.raise_for_status()
 
         return msgspec.json.decode(resp.content, type=list[list[HighlightScore]])
 

@@ -8,3 +8,6 @@ formatter = logging.Formatter(
 sh = logging.StreamHandler()
 sh.setFormatter(formatter)
 logger.addHandler(sh)
+
+# disable waitress log config
+logging.getLogger().addHandler(logging.NullHandler())

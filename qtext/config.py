@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Type
 
 import msgspec
-from reranker import HybridRanker, Ranker
+from reranker import Ranker, VectorBoost
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "qtext" / "config.json"
 
@@ -27,7 +27,7 @@ class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
 
 
 class RankConfig(msgspec.Struct, kw_only=True, frozen=True):
-    ranker: Type[Ranker] = HybridRanker
+    ranker: Type[Ranker] = VectorBoost
     params: dict[str, str] = msgspec.field(default_factory=dict)
 
 
