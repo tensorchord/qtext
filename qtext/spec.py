@@ -24,7 +24,7 @@ DISTANCE_TO_OP = {
 class AddDocRequest(msgspec.Struct, kw_only=True):
     namespace: str
     text: str
-    doc_id: str | None = None
+    doc_id: int | None = None
     vector: list[float] = msgspec.field(default_factory=list)
     title: str | None = None
     summary: str | None = None
