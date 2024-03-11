@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import openai
 
+from qtext.utils import time_it
+
 
 class EmbeddingClient:
     def __init__(self, model_name: str, api_key: str, endpoint: str, timeout: int):
@@ -12,6 +14,7 @@ class EmbeddingClient:
             timeout=timeout,
         )
 
+    @time_it
     def embedding(self, text: str | list[str]) -> list[float]:
         response = self.client.embeddings.create(
             model=self.model_name,

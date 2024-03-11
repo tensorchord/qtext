@@ -12,6 +12,7 @@ from qtext.spec import (
     HighlightResponse,
     QueryDocRequest,
 )
+from qtext.utils import time_it
 
 
 class RetrievalEngine:
@@ -26,14 +27,17 @@ class RetrievalEngine:
         )
         self.ranker = config.ranker.ranker(**config.ranker.params)
 
+    @time_it
     def add_namespace(self, req: AddNamespaceRequest) -> None:
         self.pg_client.add_namespace(req)
 
+    @time_it
     def add_doc(self, req: AddDocRequest) -> None:
         if not req.vector:
             req.vector = self.emb_client.embedding(req.text)
         self.pg_client.add_doc(req)
 
+    @time_it
     def query(self, req: QueryDocRequest) -> list[DocResponse]:
         kw_results = self.pg_client.query_text(req)
         if not req.vector:
@@ -50,6 +54,7 @@ class RetrievalEngine:
         ranked = self.ranker.rank(req.to_record(), list(id2docs.values()))
         return [DocResponse.from_record(record) for record in ranked]
 
+    @time_it
     def highlight(self, req: HighlightRequest) -> HighlightResponse:
         text_scores = self.highlight_client.highlight_score(req.query, req.docs)
         highlighted = []

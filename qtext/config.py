@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated, Type
 
 import msgspec
-from reranker import Ranker, VectorBoost
+from reranker import CrossEncoderClient, Ranker
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "qtext" / "config.json"
 
@@ -12,6 +13,7 @@ DEFAULT_CONFIG_PATH = Path.home() / ".config" / "qtext" / "config.json"
 class ServerConfig(msgspec.Struct, kw_only=True, frozen=True):
     host: str = "0.0.0.0"
     port: Annotated[int, msgspec.Meta(ge=1, le=65535)] = 8000
+    log_level: int = logging.INFO
 
 
 class VectorStoreConfig(msgspec.Struct, kw_only=True, frozen=True):
@@ -27,7 +29,7 @@ class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
 
 
 class RankConfig(msgspec.Struct, kw_only=True, frozen=True):
-    ranker: Type[Ranker] = VectorBoost
+    ranker: Type[Ranker] = CrossEncoderClient
     params: dict[str, str] = msgspec.field(default_factory=dict)
 
 

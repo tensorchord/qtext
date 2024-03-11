@@ -14,6 +14,7 @@ from qtext.spec import (
     DocResponse,
     QueryDocRequest,
 )
+from qtext.utils import time_it
 
 
 class VectorDumper(Dumper):
@@ -69,6 +70,7 @@ class PgVectorsClient:
     def close(self):
         self.conn.close()
 
+    @time_it
     def add_namespace(self, req: AddNamespaceRequest):
         try:
             self.conn.execute(
@@ -144,6 +146,7 @@ class PgVectorsClient:
             self.conn.rollback()
             raise RuntimeError("add doc error") from err
 
+    @time_it
     def query_text(self, req: QueryDocRequest) -> list[DocResponse]:
         try:
             cursor = self.conn.execute(
@@ -161,6 +164,7 @@ class PgVectorsClient:
             raise RuntimeError("query text error") from err
         return [DocResponse.from_query_result(res) for res in cursor.fetchall()]
 
+    @time_it
     def query_vector(self, req: QueryDocRequest) -> list[DocResponse]:
         op = DISTANCE_TO_OP[req.distance]
         try:
