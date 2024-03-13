@@ -105,7 +105,6 @@ class QueryDocRequest(msgspec.Struct, kw_only=True):
     limit: int = 10
     vector: list[float] | None = None
     metadata: dict | None = None
-    distance: DISTANCE = "cosine"
 
     def to_record(self) -> Record:
         return Record(
@@ -117,7 +116,6 @@ class QueryDocRequest(msgspec.Struct, kw_only=True):
 class AddNamespaceRequest(msgspec.Struct, frozen=True, kw_only=True):
     name: str
     vector_dim: int
-    distance: DISTANCE = "cosine"
 
 
 class HighlightRequest(msgspec.Struct, kw_only=True, frozen=True):

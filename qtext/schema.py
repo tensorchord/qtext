@@ -129,6 +129,24 @@ class SearchTable:
             f"ALTER TABLE {table} ADD COLUMN fts_vector tsvector GENERATED "
             f"ALWAYS AS (to_tsvector('english', {indexed_columns})) stored;"
         )
+    
+    def vector_query(self, table: str) -> str:
+        columns = ", ".join(f.name for f in self.fields)
+        return (
+            f"SELECT {columns}, emb <#> %s AS distance FROM {table} "
+            "ORDER by distance LIMIT %s;"
+        )
+
+    def text_query(self, table: str) -> str:
+        columns = ", ".join(f.name for f in self.fields)
+        return (
+            f"SELECT {columns}, ts_rank_cd(fts_vector, query) AS rank "
+            f"FROM {table}, to_tsquery(%s) query "
+            "WHERE fts_vector @@ query order by rank desc LIMIT %s;"
+        )
+
+    def columns(self) -> str:
+        return list(f.name for f in self.fields)
 
 
 if __name__ == "__main__":
@@ -136,3 +154,5 @@ if __name__ == "__main__":
     print(search.create_table("document", 64))
     print(search.vector_index("document"))
     print(search.text_index("document"))
+    print(search.vector_query("document"))
+    print(search.text_query("document"))
