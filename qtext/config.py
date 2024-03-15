@@ -20,7 +20,7 @@ class ServerConfig(msgspec.Struct, kw_only=True, frozen=True):
 
 class VectorStoreConfig(msgspec.Struct, kw_only=True, frozen=True):
     url: str = "postgresql://postgres:password@127.0.0.1:5432/"
-    schema: DefaultTable = DefaultTable
+    schema: Type[DefaultTable] = DefaultTable
 
 
 class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
