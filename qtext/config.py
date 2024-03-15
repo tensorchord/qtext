@@ -7,6 +7,8 @@ from typing import Annotated, Type
 import msgspec
 from reranker import CrossEncoderClient, Ranker
 
+from qtext.schema import DefaultTable
+
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "qtext" / "config.json"
 
 
@@ -18,6 +20,7 @@ class ServerConfig(msgspec.Struct, kw_only=True, frozen=True):
 
 class VectorStoreConfig(msgspec.Struct, kw_only=True, frozen=True):
     url: str = "postgresql://postgres:password@127.0.0.1:5432/"
+    schema: DefaultTable = DefaultTable
 
 
 class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):

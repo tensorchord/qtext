@@ -4,6 +4,7 @@ from qtext.config import Config
 from qtext.emb_client import EmbeddingClient
 from qtext.highlight_client import ENGLISH_STOPWORDS, HighlightClient
 from qtext.pg_client import PgVectorsClient
+from qtext.schema import Querier
 from qtext.spec import (
     AddDocRequest,
     AddNamespaceRequest,
@@ -17,7 +18,8 @@ from qtext.utils import time_it
 
 class RetrievalEngine:
     def __init__(self, config: Config) -> None:
-        self.pg_client = PgVectorsClient(config.vector_store.url)
+        querier = Querier(config.vector_store.schema)
+        self.pg_client = PgVectorsClient(config.vector_store.url, querier=querier)
         self.highlight_client = HighlightClient(config.highlight.addr)
         self.emb_client = EmbeddingClient(
             model_name=config.embedding.model_name,

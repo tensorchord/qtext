@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Type
 
@@ -8,6 +8,7 @@ import msgspec
 from msgspec import NODEFAULT
 from msgspec.inspect import (
     DateTimeType,
+    DictType,
     Field,
     FloatType,
     IntType,
@@ -62,7 +63,7 @@ class DefaultTable:
         )
 
 
-class SearchTable:
+class Querier:
     def __init__(self, table: Type[DefaultTable]) -> None:
         self.table_type = table
         self.fields: list[Field] = msgspec.inspect.type_info(table).fields
@@ -70,13 +71,30 @@ class SearchTable:
         self.vector_column: str | None = None
         self.text_columns: list[str] = []
 
-        for f in table.__dataclass_fields__.values():
+        for f in fields(self.table_type):
             if f.metadata.get("primary_key"):
                 self.primary_key = f.name
             if f.metadata.get("vector_index"):
                 self.vector_column = f.name
             if f.metadata.get("text_index"):
                 self.text_columns.append(f.name)
+
+    def generate_request_class(self):
+        @dataclass(kw_only=True)
+        class Request(self.table_type):
+            namespace: str
+
+        return Request
+
+    def generate_response_class(self):
+        @dataclass(kw_only=True)
+        class Response(self.table_type):
+            similarity: float
+
+            # @classmethod
+            # def from_db_query(cls, )
+
+        return Response
 
     @staticmethod
     def to_pg_type(field_type: msgspec.inspect.Type) -> str:
@@ -85,16 +103,17 @@ class SearchTable:
                 if isinstance(t, NoneType):
                     # ignore None
                     continue
-                return SearchTable.to_pg_type(t)
+                return Querier.to_pg_type(t)
 
         if isinstance(field_type, ListType):
-            return SearchTable.to_pg_type(field_type.item_type) + "[]"
+            return Querier.to_pg_type(field_type.item_type) + "[]"
 
         return {
             StrType: "TEXT",
             IntType: "INTEGER",
             FloatType: "REAL",
             DateTimeType: "TIMESTAMP",
+            DictType: "JSONB",
         }[field_type.__class__]
 
     def create_table(self, name: str, dim: int) -> str:
@@ -106,7 +125,7 @@ class SearchTable:
             elif f.name == self.vector_column:
                 sql += f"{f.name} vector({dim}) "
             else:
-                sql += f"{f.name} {SearchTable.to_pg_type(f.type)} "
+                sql += f"{f.name} {Querier.to_pg_type(f.type)} "
 
             if f.required:
                 sql += "NOT NULL "
@@ -115,9 +134,13 @@ class SearchTable:
 
             if i < len(self.fields) - 1:
                 sql += ", "
-        return sql + ")"
+        return sql + ");"
 
     def vector_index(self, table: str) -> str:
+        """
+        This assumes that all the vectors are normalized, so inner product
+        is used since it can be computed efficiently.
+        """
         return (
             f"CREATE INDEX IF NOT EXISTS {table}_vectors ON {table} USING "
             f"vectors ({self.vector_column} vector_dot_ops);"
@@ -129,7 +152,7 @@ class SearchTable:
             f"ALTER TABLE {table} ADD COLUMN fts_vector tsvector GENERATED "
             f"ALWAYS AS (to_tsvector('english', {indexed_columns})) stored;"
         )
-    
+
     def vector_query(self, table: str) -> str:
         columns = ", ".join(f.name for f in self.fields)
         return (
@@ -145,14 +168,17 @@ class SearchTable:
             "WHERE fts_vector @@ query order by rank desc LIMIT %s;"
         )
 
-    def columns(self) -> str:
+    def columns(self) -> list[str]:
         return list(f.name for f in self.fields)
 
 
 if __name__ == "__main__":
-    search = SearchTable(DefaultTable)
+    search = Querier(DefaultTable)
     print(search.create_table("document", 64))
     print(search.vector_index("document"))
     print(search.text_index("document"))
     print(search.vector_query("document"))
     print(search.text_query("document"))
+
+    req_cls = search.generate_request_class()
+    resp_cls = search.generate_response_class()
