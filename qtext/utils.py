@@ -1,9 +1,11 @@
+from functools import wraps
 from time import perf_counter
 
 from qtext.log import logger
 
 
 def time_it(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
         t0 = perf_counter()
         result = func(*args, **kwargs)

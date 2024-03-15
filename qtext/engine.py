@@ -4,11 +4,10 @@ from qtext.config import Config
 from qtext.emb_client import EmbeddingClient
 from qtext.highlight_client import ENGLISH_STOPWORDS, HighlightClient
 from qtext.pg_client import PgVectorsClient
-from qtext.schema import Querier
+from qtext.schema import DefaultTable, Querier
 from qtext.spec import (
     AddDocRequest,
     AddNamespaceRequest,
-    DocResponse,
     HighlightRequest,
     HighlightResponse,
     QueryDocRequest,
@@ -18,8 +17,8 @@ from qtext.utils import time_it
 
 class RetrievalEngine:
     def __init__(self, config: Config) -> None:
-        querier = Querier(config.vector_store.schema)
-        self.pg_client = PgVectorsClient(config.vector_store.url, querier=querier)
+        self.querier = Querier(config.vector_store.schema)
+        self.pg_client = PgVectorsClient(config.vector_store.url, querier=self.querier)
         self.highlight_client = HighlightClient(config.highlight.addr)
         self.emb_client = EmbeddingClient(
             model_name=config.embedding.model_name,
@@ -40,21 +39,14 @@ class RetrievalEngine:
         self.pg_client.add_doc(req)
 
     @time_it
-    def query(self, req: QueryDocRequest) -> list[DocResponse]:
+    def query(self, req: QueryDocRequest) -> list[DefaultTable]:
         kw_results = self.pg_client.query_text(req)
         if not req.vector:
             req.vector = self.emb_client.embedding(req.query)
         vec_results = self.pg_client.query_vector(req)
-        # combine the results
-        id2docs = {vec.id: vec.to_record() for vec in vec_results}
-        for kw in kw_results:
-            if kw.id not in id2docs:
-                id2docs[kw.id] = kw.to_record()
-            else:
-                id2docs[kw.id].content_bm25 = kw.similarity
-
-        ranked = self.ranker.rank(req.to_record(), list(id2docs.values()))
-        return [DocResponse.from_record(record) for record in ranked]
+        records = self.querier.combine_vector_text(vec_results, kw_results)
+        ranked = self.ranker.rank(req.to_record(), records)
+        return [DefaultTable.from_record(record) for record in ranked]
 
     @time_it
     def highlight(self, req: HighlightRequest) -> HighlightResponse:

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import msgspec
 import numpy as np
 import psycopg
 from psycopg.adapt import Dumper, Loader
+from psycopg.rows import dict_row
 from psycopg.types import TypeInfo
 
 from qtext.log import logger
@@ -63,7 +63,7 @@ class PgVectorsClient:
         self.conn = self.connect()
 
     def connect(self):
-        conn = psycopg.connect(self.path)
+        conn = psycopg.connect(self.path, row_factory=dict_row)
         conn.execute("CREATE EXTENSION IF NOT EXISTS vectors;")
         register_vector(conn)
         conn.commit()
@@ -118,10 +118,7 @@ class PgVectorsClient:
             logger.info("pg client query error", exc_info=err)
             self.conn.rollback()
             raise RuntimeError("query text error") from err
-        return [
-            msgspec.convert(res, type=self.resp_cls, from_attributes=True)
-            for res in cursor.fetchall()
-        ]
+        return [self.resp_cls(**res) for res in cursor.fetchall()]
 
     @time_it
     def query_vector(self, req: QueryDocRequest) -> list[DocResponse]:
@@ -135,7 +132,4 @@ class PgVectorsClient:
             logger.info("pg client query error", exc_info=err)
             self.conn.rollback()
             raise RuntimeError("query vector error") from err
-        return [
-            msgspec.convert(res, type=self.resp_cls, from_attributes=True)
-            for res in cursor.fetchall()
-        ]
+        return [self.resp_cls(**res) for res in cursor.fetchall()]

@@ -89,12 +89,26 @@ class Querier:
     def generate_response_class(self):
         @dataclass(kw_only=True)
         class Response(self.table_type):
-            similarity: float
-
-            # @classmethod
-            # def from_db_query(cls, )
+            rank: float
 
         return Response
+
+    def combine_vector_text(
+        self, vec_res: list[DefaultTable], text_res: list[DefaultTable]
+    ) -> list[Record]:
+        id_to_record = {}
+        for vec in vec_res:
+            record = vec.to_record()
+            record.vector_sim = vec.rank
+            id_to_record[record.id] = record
+
+        for text in text_res:
+            record = text.to_record()
+            if record.id not in id_to_record:
+                id_to_record[record.id] = record
+            id_to_record[record.id].content_bm25 = text.rank
+
+        return list(id_to_record.values())
 
     @staticmethod
     def to_pg_type(field_type: msgspec.inspect.Type) -> str:
@@ -156,8 +170,8 @@ class Querier:
     def vector_query(self, table: str) -> str:
         columns = ", ".join(f.name for f in self.fields)
         return (
-            f"SELECT {columns}, emb <#> %s AS distance FROM {table} "
-            "ORDER by distance LIMIT %s;"
+            f"SELECT {columns}, {self.vector_column} <#> %s AS rank "
+            f"FROM {table} ORDER by rank LIMIT %s;"
         )
 
     def text_query(self, table: str) -> str:
