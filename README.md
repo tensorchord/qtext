@@ -14,5 +14,6 @@ Check the [OpenAPI documentation](http://127.0.0.1:8000/openapi/redoc) for more 
 
 1. Define a dataclass that includes all the columns as class attributes
 2. Implement the `to_record` and `from_record` methods to be used in the reranking
+3. Change the `config.vector_store.schema` to the class you have defined
 
 Check the [schema.py](/qtext/schema.py) for more details.
