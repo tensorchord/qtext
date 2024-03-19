@@ -33,10 +33,12 @@ class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
 
 class RankConfig(msgspec.Struct, kw_only=True, frozen=True):
     ranker: Type[Ranker] = CrossEncoderClient
-    params: dict[str, str] = {
-        "model_name": "cross-encoder/ms-marco-MiniLM-L-6-v2",
-        "addr": "http://127.0.0.1:8082",
-    }
+    params: dict[str, str] = msgspec.field(
+        default_factory=lambda: {
+            "model_name": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+            "addr": "http://127.0.0.1:8082",
+        }
+    )
 
 
 class HighlightConfig(msgspec.Struct, kw_only=True, frozen=True):

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Type
@@ -24,7 +23,7 @@ from reranker import Record
 @dataclass(kw_only=True)
 class DefaultTable:
     id: int | None = field(default=None, metadata={"primary_key": True})
-    text: str = field(metadata={"text_index": True})
+    text: str = field(default_factory=list, metadata={"text_index": True})
     vector: list[float] = field(metadata={"vector_index": True})
     title: str | None = field(default=None, metadata={"text_index": True})
     summary: str | None = None
@@ -94,12 +93,14 @@ class Querier:
 
         return Response
 
-    def fill_vector(self, obj, callback: Callable[[], list[float]]):
-        if getattr(obj, self.vector_column) is None:
-            setattr(obj, self.vector_column, callback())
+    def fill_vector(self, obj, vector: list[float]):
+        setattr(obj, self.vector_column, vector)
+
+    def retrieve_vector(self, obj):
+        return getattr(obj, self.vector_column)
 
     def retrieve_text(self, obj):
-        return "\n".join(getattr(obj, t, "") for t in self.text_columns)
+        return "\n".join(getattr(obj, t, "") or "" for t in self.text_columns)
 
     def combine_vector_text(
         self, vec_res: list[DefaultTable], text_res: list[DefaultTable]

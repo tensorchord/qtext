@@ -1,6 +1,8 @@
 from functools import wraps
 from time import perf_counter
 
+import numpy as np
+
 from qtext.log import logger
 
 
@@ -13,3 +15,9 @@ def time_it(func):
         return result
 
     return wrapper
+
+
+def msgspec_encode_np(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    raise NotImplementedError(f"unknown type {type(obj)} for msgspec encoder")

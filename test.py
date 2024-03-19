@@ -26,7 +26,7 @@ resp = client.post(
     "/api/query", json={"namespace": "document", "query": "Who creates faster Python?"}
 )
 resp.raise_for_status()
-print([(doc["id"], doc["similarity"], doc["text"]) for doc in resp.json()])
+print([(doc["id"], doc["text"]) for doc in resp.json()])
 resp = client.post(
     "/api/highlight",
     json={

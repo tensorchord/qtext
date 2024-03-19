@@ -13,6 +13,7 @@ from qtext.spec import (
     HighlightResponse,
     QueryDocRequest,
 )
+from qtext.utils import msgspec_encode_np
 
 
 def validate_request(spec: type[msgspec.Struct], req: Request, resp: Response):
@@ -70,7 +71,7 @@ class QueryResource:
             return
 
         docs = self.engine.query(request)
-        resp.data = msgspec.json.encode(docs)
+        resp.data = msgspec.json.encode(docs, enc_hook=msgspec_encode_np)
         resp.content_type = falcon.MEDIA_JSON
 
 
@@ -147,7 +148,7 @@ def create_app(engine: RetrievalEngine) -> App:
     app.add_route("/api/doc", DocResource(engine))
     app.add_route("/api/query", QueryResource(engine))
     app.add_route("/api/highlight", HighlightResource(engine))
-    app.add_route("/openapi/spec.json", OpenAPIResource())
+    app.add_route("/openapi/spec.json", OpenAPIResource(engine))
     app.add_route(
         "/openapi/swagger", OpenAPIRender("/openapi/spec.json", RenderTemplate.SWAGGER)
     )

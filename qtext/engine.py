@@ -36,7 +36,9 @@ class RetrievalEngine:
     @time_it
     def add_doc(self, req) -> None:
         text = self.querier.retrieve_text(req)
-        self.querier.fill_vector(req, lambda: self.emb_client.embedding(text=text))
+        vector = self.querier.retrieve_vector(req)
+        if not vector:
+            self.querier.fill_vector(req, self.emb_client.embedding(text=text))
         self.pg_client.add_doc(req)
 
     @time_it

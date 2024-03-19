@@ -7,13 +7,8 @@ from psycopg.rows import dict_row
 from psycopg.types import TypeInfo
 
 from qtext.log import logger
-from qtext.schema import Querier
-from qtext.spec import (
-    AddDocRequest,
-    AddNamespaceRequest,
-    DocResponse,
-    QueryDocRequest,
-)
+from qtext.schema import DefaultTable, Querier
+from qtext.spec import AddNamespaceRequest, QueryDocRequest
 from qtext.utils import time_it
 
 
@@ -87,11 +82,11 @@ class PgVectorsClient:
             self.conn.rollback()
             raise RuntimeError("add namespace error") from err
 
-    def add_doc(self, req: AddDocRequest):
+    def add_doc(self, req):
         try:
             attributes = self.querier.columns()
             primary_id = self.querier.primary_key
-            if primary_id is None or getattr(req, primary_id, None):
+            if primary_id is None or getattr(req, primary_id, None) is None:
                 attributes.remove(primary_id)
             placeholders = [getattr(req, key) for key in attributes]
             self.conn.execute(
@@ -108,7 +103,7 @@ class PgVectorsClient:
             raise RuntimeError("add doc error") from err
 
     @time_it
-    def query_text(self, req: QueryDocRequest) -> list[DocResponse]:
+    def query_text(self, req: QueryDocRequest) -> list[DefaultTable]:
         try:
             cursor = self.conn.execute(
                 self.querier.text_query(req.namespace),
@@ -121,7 +116,7 @@ class PgVectorsClient:
         return [self.resp_cls(**res) for res in cursor.fetchall()]
 
     @time_it
-    def query_vector(self, req: QueryDocRequest) -> list[DocResponse]:
+    def query_vector(self, req: QueryDocRequest) -> list[DefaultTable]:
         try:
             # TODO: filter
             cursor = self.conn.execute(
