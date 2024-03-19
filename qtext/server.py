@@ -8,9 +8,7 @@ from falcon import App, Request, Response
 from qtext.engine import RetrievalEngine
 from qtext.log import logger
 from qtext.spec import (
-    AddDocRequest,
     AddNamespaceRequest,
-    DocResponse,
     HighlightRequest,
     HighlightResponse,
     QueryDocRequest,
@@ -55,7 +53,7 @@ class DocResource:
         self.engine = engine
 
     def on_post(self, req: Request, resp: Response):
-        request = validate_request(AddDocRequest, req, resp)
+        request = validate_request(self.engine.req_cls, req, resp)
         if request is None:
             return
 
@@ -101,7 +99,7 @@ class HighlightResource:
 
 
 class OpenAPIResource:
-    def __init__(self):
+    def __init__(self, engine: RetrievalEngine):
         self.openapi = OpenAPI()
         self.openapi.register_route(
             "/api/namespace",
@@ -110,14 +108,14 @@ class OpenAPIResource:
             request_type=AddNamespaceRequest,
         )
         self.openapi.register_route(
-            "/api/doc", "post", "Add a document", request_type=AddDocRequest
+            "/api/doc", "post", "Add a document", request_type=engine.req_cls
         )
         self.openapi.register_route(
             "/api/query",
             "post",
             "Get the similar documents",
             request_type=QueryDocRequest,
-            response_type=list[DocResponse],
+            response_type=list[engine.resp_cls],
         )
         self.openapi.register_route(
             "/api/highlight",

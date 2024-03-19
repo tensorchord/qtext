@@ -15,7 +15,7 @@ DEFAULT_CONFIG_PATH = Path.home() / ".config" / "qtext" / "config.json"
 class ServerConfig(msgspec.Struct, kw_only=True, frozen=True):
     host: str = "0.0.0.0"
     port: Annotated[int, msgspec.Meta(ge=1, le=65535)] = 8000
-    log_level: int = logging.INFO
+    log_level: int = logging.DEBUG
 
 
 class VectorStoreConfig(msgspec.Struct, kw_only=True, frozen=True):
@@ -33,7 +33,10 @@ class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
 
 class RankConfig(msgspec.Struct, kw_only=True, frozen=True):
     ranker: Type[Ranker] = CrossEncoderClient
-    params: dict[str, str] = msgspec.field(default_factory=dict)
+    params: dict[str, str] = {
+        "model_name": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        "addr": "http://127.0.0.1:8082",
+    }
 
 
 class HighlightConfig(msgspec.Struct, kw_only=True, frozen=True):

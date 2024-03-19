@@ -6,7 +6,6 @@ from qtext.highlight_client import ENGLISH_STOPWORDS, HighlightClient
 from qtext.pg_client import PgVectorsClient
 from qtext.schema import DefaultTable, Querier
 from qtext.spec import (
-    AddDocRequest,
     AddNamespaceRequest,
     HighlightRequest,
     HighlightResponse,
@@ -18,6 +17,8 @@ from qtext.utils import time_it
 class RetrievalEngine:
     def __init__(self, config: Config) -> None:
         self.querier = Querier(config.vector_store.schema)
+        self.req_cls = self.querier.generate_request_class()
+        self.resp_cls = self.querier.table_type
         self.pg_client = PgVectorsClient(config.vector_store.url, querier=self.querier)
         self.highlight_client = HighlightClient(config.highlight.addr)
         self.emb_client = EmbeddingClient(
@@ -33,9 +34,9 @@ class RetrievalEngine:
         self.pg_client.add_namespace(req)
 
     @time_it
-    def add_doc(self, req: AddDocRequest) -> None:
-        if not req.vector:
-            req.vector = self.emb_client.embedding(req.text)
+    def add_doc(self, req) -> None:
+        text = self.querier.retrieve_text(req)
+        self.querier.fill_vector(req, lambda: self.emb_client.embedding(text=text))
         self.pg_client.add_doc(req)
 
     @time_it

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Type
@@ -20,9 +21,9 @@ from msgspec.inspect import (
 from reranker import Record
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DefaultTable:
-    id: int = field(metadata={"primary_key": True})
+    id: int | None = field(default=None, metadata={"primary_key": True})
     text: str = field(metadata={"text_index": True})
     vector: list[float] = field(metadata={"vector_index": True})
     title: str | None = field(default=None, metadata={"text_index": True})
@@ -79,19 +80,26 @@ class Querier:
             if f.metadata.get("text_index"):
                 self.text_columns.append(f.name)
 
-    def generate_request_class(self):
+    def generate_request_class(self) -> DefaultTable:
         @dataclass(kw_only=True)
         class Request(self.table_type):
             namespace: str
 
         return Request
 
-    def generate_response_class(self):
+    def generate_response_class(self) -> DefaultTable:
         @dataclass(kw_only=True)
         class Response(self.table_type):
             rank: float
 
         return Response
+
+    def fill_vector(self, obj, callback: Callable[[], list[float]]):
+        if getattr(obj, self.vector_column) is None:
+            setattr(obj, self.vector_column, callback())
+
+    def retrieve_text(self, obj):
+        return "\n".join(getattr(obj, t, "") for t in self.text_columns)
 
     def combine_vector_text(
         self, vec_res: list[DefaultTable], text_res: list[DefaultTable]

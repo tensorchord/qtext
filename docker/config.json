@@ -7,5 +7,8 @@
     },
     "highlight": {
         "addr": "http://colbert:8000"
+    },
+    "server": {
+        "log_level": 10
     }
 }
