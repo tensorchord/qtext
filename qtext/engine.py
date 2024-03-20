@@ -35,21 +35,31 @@ class RetrievalEngine:
 
     @time_it
     def add_doc(self, req) -> None:
-        text = self.querier.retrieve_text(req)
-        vector = self.querier.retrieve_vector(req)
-        if not vector:
-            self.querier.fill_vector(req, self.emb_client.embedding(text=text))
+        if self.querier.has_vector_index():
+            text = self.querier.retrieve_text(req)
+            vector = self.querier.retrieve_vector(req)
+            if not vector:
+                self.querier.fill_vector(req, self.emb_client.embedding(text=text))
         self.pg_client.add_doc(req)
+
+    @time_it
+    def rank(
+        self,
+        req: QueryDocRequest,
+        text_res: list[DefaultTable],
+        vector_res: list[DefaultTable],
+    ) -> list[DefaultTable]:
+        docs = self.querier.combine_vector_text(vec_res=vector_res, text_res=text_res)
+        ranked = self.ranker.rank(req.to_record(), docs)
+        return [DefaultTable.from_record(record) for record in ranked]
 
     @time_it
     def query(self, req: QueryDocRequest) -> list[DefaultTable]:
         kw_results = self.pg_client.query_text(req)
-        if not req.vector:
+        if self.querier.has_vector_index() and not self.querier.retrieve_vector(req):
             req.vector = self.emb_client.embedding(req.query)
         vec_results = self.pg_client.query_vector(req)
-        records = self.querier.combine_vector_text(vec_results, kw_results)
-        ranked = self.ranker.rank(req.to_record(), records)
-        return [DefaultTable.from_record(record) for record in ranked]
+        return self.rank(req, kw_results, vec_results)
 
     @time_it
     def highlight(self, req: HighlightRequest) -> HighlightResponse:
