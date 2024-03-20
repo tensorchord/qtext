@@ -174,6 +174,7 @@ class Querier:
         return (
             f"ALTER TABLE {table} ADD COLUMN fts_vector tsvector GENERATED "
             f"ALWAYS AS (to_tsvector('english', {indexed_columns})) stored;"
+            f"CREATE INDEX ts_idx ON {table} USING GIN (fts_vector);"
         )
 
     def vector_query(self, table: str) -> str:

@@ -22,6 +22,8 @@ services:
 
   encoder:
     image: "kemingy/cross-encoder"
+    environment:
+      - MOSEC_TIMEOUT=10000
     ports:
       - "8082:8000"
 
