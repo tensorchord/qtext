@@ -104,6 +104,8 @@ class PgVectorsClient:
 
     @time_it
     def query_text(self, req: QueryDocRequest) -> list[DefaultTable]:
+        if not self.querier.has_text_index():
+            return []
         try:
             cursor = self.conn.execute(
                 self.querier.text_query(req.namespace),
@@ -117,6 +119,8 @@ class PgVectorsClient:
 
     @time_it
     def query_vector(self, req: QueryDocRequest) -> list[DefaultTable]:
+        if not self.querier.has_vector_index():
+            return []
         try:
             # TODO: filter
             cursor = self.conn.execute(

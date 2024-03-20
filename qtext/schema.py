@@ -159,17 +159,27 @@ class Querier:
                 sql += ", "
         return sql + ");"
 
+    def has_vector_index(self) -> bool:
+        return self.vector_column is not None
+
+    def has_text_index(self) -> bool:
+        return len(self.text_columns) > 0
+
     def vector_index(self, table: str) -> str:
         """
         This assumes that all the vectors are normalized, so inner product
         is used since it can be computed efficiently.
         """
+        if not self.has_vector_index():
+            return ""
         return (
             f"CREATE INDEX IF NOT EXISTS {table}_vectors ON {table} USING "
             f"vectors ({self.vector_column} vector_dot_ops);"
         )
 
     def text_index(self, table: str) -> str:
+        if not self.has_text_index():
+            return ""
         indexed_columns = " || ' ' || ".join(self.text_columns)
         return (
             f"ALTER TABLE {table} ADD COLUMN fts_vector tsvector GENERATED "
