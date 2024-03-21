@@ -105,7 +105,7 @@ class OpenAPIResource:
         self.openapi.register_route(
             "/api/namespace",
             "post",
-            "Create a namespace",
+            "Create a namespace with text + vector index",
             request_type=AddNamespaceRequest,
         )
         self.openapi.register_route(

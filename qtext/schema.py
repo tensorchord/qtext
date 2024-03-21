@@ -23,8 +23,8 @@ from reranker import Record
 @dataclass(kw_only=True)
 class DefaultTable:
     id: int | None = field(default=None, metadata={"primary_key": True})
-    text: str = field(default_factory=list, metadata={"text_index": True})
-    vector: list[float] = field(metadata={"vector_index": True})
+    text: str = field(metadata={"text_index": True})
+    vector: list[float] = field(default_factory=list, metadata={"vector_index": True})
     title: str | None = field(default=None, metadata={"text_index": True})
     summary: str | None = None
     author: str | None = None
@@ -182,9 +182,9 @@ class Querier:
             return ""
         indexed_columns = " || ' ' || ".join(self.text_columns)
         return (
-            f"ALTER TABLE {table} ADD COLUMN fts_vector tsvector GENERATED "
-            f"ALWAYS AS (to_tsvector('english', {indexed_columns})) stored;"
-            f"CREATE INDEX ts_idx ON {table} USING GIN (fts_vector);"
+            f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS fts_vector tsvector "
+            f"GENERATED ALWAYS AS (to_tsvector('english', {indexed_columns})) stored;"
+            f"CREATE INDEX IF NOT EXISTS ts_idx ON {table} USING GIN (fts_vector);"
         )
 
     def vector_query(self, table: str) -> str:
