@@ -1,4 +1,4 @@
-PY_SOURCE=qtext
+PY_SOURCE=qtext *.py
 
 dev:
 	@pip install -e .[dev]

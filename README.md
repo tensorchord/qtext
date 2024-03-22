@@ -6,6 +6,7 @@ End-to-end service to query the text.
 - [x] vector similarity search ([pgvecto.rs](https://github.com/tensorchord/pgvecto.rs) HNSW)
 - [x] generate vector if not provided
 - [ ] sparse search
+- [ ] filtering
 - [x] reranking with [reranker](https://github.com/kemingy/reranker)
 - [x] semantic highlight
 
@@ -22,7 +23,9 @@ Some of the dependent services can be opt-out:
 - `colbert`: used to provide the semantic highlight feature
 - `encoder`: rerank with cross-encoder model, you can choose other methods or other online services
 
-For the client example, check [test.py](./test.py) file. If you have the Cohere Token, you can try the [test_cohere_wiki.py](./test_cohere_wiki.py) which use a 485,000 wiki datasets.
+For the client example, check:
+- [test.py](./test.py): simple demo.
+- [test_cohere_wiki.py](./test_cohere_wiki.py): if you have the Cohere Token. Remember to change the `config.ranker.ranker` to the `CohereClient` (imported from `reranker`).
 
 ## API
 
