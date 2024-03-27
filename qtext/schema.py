@@ -25,6 +25,9 @@ class DefaultTable:
     id: int | None = field(default=None, metadata={"primary_key": True})
     text: str = field(metadata={"text_index": True})
     vector: list[float] = field(default_factory=list, metadata={"vector_index": True})
+    sparse_vector: list[float] = field(
+        default_factory=list, metadata={"sparse_index": True}
+    )
     title: str | None = field(default=None, metadata={"text_index": True})
     summary: str | None = None
     author: str | None = None
@@ -69,6 +72,7 @@ class Querier:
         self.fields: list[Field] = msgspec.inspect.type_info(table).fields
         self.primary_key: str | None = None
         self.vector_column: str | None = None
+        self.sparse_column: str | None = None
         self.text_columns: list[str] = []
 
         for f in fields(self.table_type):
@@ -76,10 +80,14 @@ class Querier:
                 self.primary_key = f.name
             if f.metadata.get("vector_index"):
                 self.vector_column = f.name
+            if f.metadata.get("sparse_index"):
+                self.sparse_column = f.name
             if f.metadata.get("text_index"):
                 self.text_columns.append(f.name)
 
     def generate_request_class(self) -> DefaultTable:
+        """Generate the user request class."""
+
         @dataclass(kw_only=True)
         class Request(self.table_type):
             namespace: str
@@ -87,6 +95,8 @@ class Querier:
         return Request
 
     def generate_response_class(self) -> DefaultTable:
+        """Generate the class used by the raw dict data from postgres."""
+
         @dataclass(kw_only=True)
         class Response(self.table_type):
             rank: float
@@ -99,17 +109,33 @@ class Querier:
     def retrieve_vector(self, obj):
         return getattr(obj, self.vector_column)
 
+    def fill_sparse_vector(self, obj, vector: list[float]):
+        setattr(obj, self.sparse_column, vector)
+
+    def retrieve_sparse_vector(self, obj):
+        return getattr(obj, self.sparse_column)
+
     def retrieve_text(self, obj):
         return "\n".join(getattr(obj, t, "") or "" for t in self.text_columns)
 
     def combine_vector_text(
-        self, vec_res: list[DefaultTable], text_res: list[DefaultTable]
+        self,
+        vec_res: list[DefaultTable],
+        sparse_res: list[DefaultTable],
+        text_res: list[DefaultTable],
     ) -> list[Record]:
+        """Combine hybrid search results."""
         id_to_record = {}
         for vec in vec_res:
             record = vec.to_record()
             record.vector_sim = vec.rank
             id_to_record[record.id] = record
+
+        for sparse in sparse_res:
+            record = sparse.to_record()
+            if record.id not in id_to_record:
+                id_to_record[record.id] = record
+            id_to_record[record.id].title_sim = sparse.rank
 
         for text in text_res:
             record = text.to_record()
@@ -139,7 +165,17 @@ class Querier:
             DictType: "JSONB",
         }[field_type.__class__]
 
-    def create_table(self, name: str, dim: int) -> str:
+    def create_table(self, name: str, dim: int, sparse_dim: int) -> str:
+        # check the vector dimension provided
+        if self.has_vector_index() and dim == 0:
+            raise ValueError(
+                "Vector dimension is required when schema has vector index"
+            )
+        if self.has_sparse_index() and sparse_dim == 0:
+            raise ValueError(
+                "Sparse vector dimension is required when schema has sparse index"
+            )
+
         sql = f"CREATE TABLE IF NOT EXISTS {name} ("
         for i, f in enumerate(self.fields):
             if f.name == self.primary_key:
@@ -147,6 +183,8 @@ class Querier:
                 continue
             elif f.name == self.vector_column:
                 sql += f"{f.name} vector({dim}) "
+            elif f.name == self.sparse_column:
+                sql += f"{f.name} svector({sparse_dim}) "
             else:
                 sql += f"{f.name} {Querier.to_pg_type(f.type)} "
 
@@ -161,6 +199,9 @@ class Querier:
 
     def has_vector_index(self) -> bool:
         return self.vector_column is not None
+
+    def has_sparse_index(self) -> bool:
+        return self.sparse_column is not None
 
     def has_text_index(self) -> bool:
         return len(self.text_columns) > 0
@@ -177,6 +218,14 @@ class Querier:
             f"vectors ({self.vector_column} vector_dot_ops);"
         )
 
+    def sparse_index(self, table: str) -> str:
+        if not self.has_sparse_index():
+            return ""
+        return (
+            f"CREATE INDEX IF NOT EXISTS {table}_sparse ON {table} USING "
+            f"vectors ({self.sparse_column} svector_dot_ops);"
+        )
+
     def text_index(self, table: str) -> str:
         if not self.has_text_index():
             return ""
@@ -191,6 +240,13 @@ class Querier:
         columns = ", ".join(f.name for f in self.fields)
         return (
             f"SELECT {columns}, {self.vector_column} <#> %s AS rank "
+            f"FROM {table} ORDER by rank LIMIT %s;"
+        )
+
+    def sparse_query(self, table: str) -> str:
+        columns = ", ".join(f.name for f in self.fields)
+        return (
+            f"SELECT {columns}, {self.sparse_column} <#> %s AS rank "
             f"FROM {table} ORDER by rank LIMIT %s;"
         )
 

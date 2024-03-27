@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from qtext.config import Config
-from qtext.emb_client import EmbeddingClient
+from qtext.emb_client import EmbeddingClient, SparseEmbeddingClient
 from qtext.highlight_client import ENGLISH_STOPWORDS, HighlightClient
 from qtext.pg_client import PgVectorsClient
 from qtext.schema import DefaultTable, Querier
@@ -27,6 +27,11 @@ class RetrievalEngine:
             endpoint=config.embedding.api_endpoint,
             timeout=config.embedding.timeout,
         )
+        self.sparse_client = SparseEmbeddingClient(
+            endpoint=config.sparse.addr,
+            dim=config.sparse.dim,
+            timeout=config.sparse.timeout,
+        )
         self.ranker = config.ranker.ranker(**config.ranker.params)
 
     @time_it
@@ -36,10 +41,17 @@ class RetrievalEngine:
     @time_it
     def add_doc(self, req) -> None:
         if self.querier.has_vector_index():
-            text = self.querier.retrieve_text(req)
             vector = self.querier.retrieve_vector(req)
-            if not vector:
+            if not vector and self.querier.has_text_index():
+                text = self.querier.retrieve_text(req)
                 self.querier.fill_vector(req, self.emb_client.embedding(text=text))
+        if self.querier.has_sparse_index():
+            sparse = self.querier.retrieve_sparse_vector(req)
+            if not sparse and self.querier.has_text_index():
+                text = self.querier.retrieve_text(req)
+                self.querier.fill_sparse_vector(
+                    req, self.sparse_client.sparse_embedding(text=text)
+                )
         self.pg_client.add_doc(req)
 
     @time_it
@@ -48,18 +60,24 @@ class RetrievalEngine:
         req: QueryDocRequest,
         text_res: list[DefaultTable],
         vector_res: list[DefaultTable],
+        sparse_res: list[DefaultTable],
     ) -> list[DefaultTable]:
-        docs = self.querier.combine_vector_text(vec_res=vector_res, text_res=text_res)
+        docs = self.querier.combine_vector_text(
+            vec_res=vector_res, sparse_res=sparse_res, text_res=text_res
+        )
         ranked = self.ranker.rank(req.to_record(), docs)
         return [DefaultTable.from_record(record) for record in ranked]
 
     @time_it
     def query(self, req: QueryDocRequest) -> list[DefaultTable]:
         kw_results = self.pg_client.query_text(req)
-        if self.querier.has_vector_index() and not self.querier.retrieve_vector(req):
+        if self.querier.has_vector_index() and not req.vector:
             req.vector = self.emb_client.embedding(req.query)
+        if self.querier.has_sparse_index() and not req.sparse_vector:
+            req.sparse_vector = self.sparse_client.sparse_embedding(req.query)
         vec_results = self.pg_client.query_vector(req)
-        return self.rank(req, kw_results, vec_results)
+        sparse_results = self.pg_client.query_sparse_vector(req)
+        return self.rank(req, kw_results, vec_results, sparse_results)
 
     @time_it
     def highlight(self, req: HighlightRequest) -> HighlightResponse:

@@ -5,7 +5,7 @@ End-to-end service to query the text.
 - [x] full text search (Postgres GIN + text search)
 - [x] vector similarity search ([pgvecto.rs](https://github.com/tensorchord/pgvecto.rs) HNSW)
 - [x] generate vector if not provided
-- [ ] sparse search
+- [x] sparse search ([pgvecto.rs](https://github.com/tensorchord/pgvecto.rs) HNSW)
 - [ ] filtering
 - [x] reranking with [reranker](https://github.com/kemingy/reranker)
 - [x] semantic highlight
@@ -20,7 +20,8 @@ docker compose -f docker/compose.yaml up -d server
 
 Some of the dependent services can be opt-out:
 - `emb`: used to generate embedding for query and documents
-- `colbert`: used to provide the semantic highlight feature
+- `sparse`: used to generate sparse embedding for query and documents
+- `highlight`: used to provide the semantic highlight feature
 - `encoder`: rerank with cross-encoder model, you can choose other methods or other online services
 
 For the client example, check:
@@ -29,7 +30,7 @@ For the client example, check:
 
 ## API
 
-- `/api/namespace` POST: create a new namespace and configure the text + vector index
+- `/api/namespace` POST: create a new namespace and configure the index
 - `/api/doc` POST: add a new doc
 - `/api/query` POST: query the docs
 - `/api/highlight` POST: semantic highlight
@@ -50,7 +51,7 @@ This project has most of the components you need for the RAG except for the last
 > If you already have the table in Postgres, you will be responsible for the text-indexing and vector-indexing part.
 
 1. Define a `dataclass` that includes the **necessary** columns as class attributes
-   - annotate the `primary_key`, `text_index`, `vector_index` with metadata
+   - annotate the `primary_key`, `text_index`, `vector_index`, `sparse_index` with metadata (not all the columns are required, only the necessary ones)
    - attributes without default value or default factory is treated as required when you add new docs
 2. Implement the `to_record` and `from_record` methods to be used in the reranking stage
 3. Change the `config.vector_store.schema` to the class you have defined

@@ -8,7 +8,7 @@ from psycopg.types import TypeInfo
 
 from qtext.log import logger
 from qtext.schema import DefaultTable, Querier
-from qtext.spec import AddNamespaceRequest, QueryDocRequest
+from qtext.spec import AddNamespaceRequest, QueryDocRequest, SparseEmbedding
 from qtext.utils import time_it
 
 
@@ -50,6 +50,34 @@ def register_vector_type(conn: psycopg.Connection, info: TypeInfo):
     adapters.register_loader(info.oid, VectorLoader)
 
 
+class SparseVectorDumper(Dumper):
+    def dump(self, obj):
+        if isinstance(obj, np.ndarray):
+            return f"[{','.join(map(str, obj))}]".encode()
+        if isinstance(obj, SparseEmbedding):
+            return obj.to_str().encode()
+        raise ValueError(f"unsupported type {type(obj)}")
+
+
+def register_sparse_vector(conn: psycopg.Connection):
+    info = TypeInfo.fetch(conn=conn, name="svector")
+    register_svector_type(conn, info)
+
+
+def register_svector_type(conn: psycopg.Connection, info: TypeInfo):
+    if info is None:
+        raise ValueError("vector type not found")
+    info.register(conn)
+
+    class SparseVectorTextDumper(SparseVectorDumper):
+        oid = info.oid
+
+    adapters = conn.adapters
+    adapters.register_dumper(SparseEmbedding, SparseVectorTextDumper)
+    adapters.register_dumper(np.ndarray, SparseVectorTextDumper)
+    adapters.register_loader(info.oid, VectorLoader)
+
+
 class PgVectorsClient:
     def __init__(self, path: str, querier: Querier):
         self.path = path
@@ -61,6 +89,7 @@ class PgVectorsClient:
         conn = psycopg.connect(self.path, row_factory=dict_row)
         conn.execute("CREATE EXTENSION IF NOT EXISTS vectors;")
         register_vector(conn)
+        register_sparse_vector(conn)
         conn.commit()
         return conn
 
@@ -70,11 +99,15 @@ class PgVectorsClient:
     @time_it
     def add_namespace(self, req: AddNamespaceRequest):
         try:
-            create_table_sql = self.querier.create_table(req.name, req.vector_dim)
+            create_table_sql = self.querier.create_table(
+                req.name, req.vector_dim, req.sparse_vector_dim
+            )
             vector_index_sql = self.querier.vector_index(req.name)
+            sparse_index_sql = self.querier.sparse_index(req.name)
             text_index_sql = self.querier.text_index(req.name)
             self.conn.execute(create_table_sql)
             self.conn.execute(vector_index_sql)
+            self.conn.execute(sparse_index_sql)
             self.conn.execute(text_index_sql)
             self.conn.commit()
         except psycopg.errors.Error as err:
@@ -112,7 +145,7 @@ class PgVectorsClient:
                 (" | ".join(req.query.strip().split(" ")), req.limit),
             )
         except psycopg.errors.Error as err:
-            logger.info("pg client query error", exc_info=err)
+            logger.info("pg client query text error", exc_info=err)
             self.conn.rollback()
             raise RuntimeError("query text error") from err
         return [self.resp_cls(**res) for res in cursor.fetchall()]
@@ -128,7 +161,22 @@ class PgVectorsClient:
                 (req.vector, req.limit),
             )
         except psycopg.errors.Error as err:
-            logger.info("pg client query error", exc_info=err)
+            logger.info("pg client query vector error", exc_info=err)
             self.conn.rollback()
             raise RuntimeError("query vector error") from err
+        return [self.resp_cls(**res) for res in cursor.fetchall()]
+
+    @time_it
+    def query_sparse_vector(self, req: QueryDocRequest) -> list[DefaultTable]:
+        if not self.querier.has_sparse_index():
+            return []
+        try:
+            cursor = self.conn.execute(
+                self.querier.sparse_query(req.namespace),
+                (req.sparse_vector, req.limit),
+            )
+        except psycopg.errors.Error as err:
+            logger.info("pg client query sparse vector error", exc_info=err)
+            self.conn.rollback()
+            raise RuntimeError("query sparse vector error") from err
         return [self.resp_cls(**res) for res in cursor.fetchall()]

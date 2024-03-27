@@ -17,7 +17,7 @@ class HighlightClient:
         resp = self.client.post("/inference", json=[query, *docs])
         if resp.is_error:
             logger.info(
-                "failed to call the highlight service [%d], %s",
+                "failed to call the highlight service [%d]: %s",
                 resp.status_code,
                 resp.content,
             )

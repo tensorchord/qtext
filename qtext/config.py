@@ -31,6 +31,12 @@ class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
     timeout: int = 300
 
 
+class SparseEmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
+    addr: str = "http://127.0.0.1:8083"
+    timeout: int = 10
+    dim: int = 30522
+
+
 class RankConfig(msgspec.Struct, kw_only=True, frozen=True):
     ranker: Type[Ranker] = CrossEncoderClient
     params: dict[str, str] = msgspec.field(
@@ -49,6 +55,7 @@ class Config(msgspec.Struct, kw_only=True, frozen=True):
     server: ServerConfig = ServerConfig()
     vector_store: VectorStoreConfig = VectorStoreConfig()
     embedding: EmbeddingConfig = EmbeddingConfig()
+    sparse: SparseEmbeddingConfig = SparseEmbeddingConfig()
     ranker: RankConfig = RankConfig()
     highlight: HighlightConfig = HighlightConfig()
 
