@@ -52,10 +52,14 @@ class DefaultTable:
 
     @classmethod
     def from_record(cls, record: Record) -> DefaultTable:
+        """Convert from a Record to a DefaultTable instance.
+
+        This method affects the final output of the query. Some of the fields can be
+        omitted before returning to the user to avoid large transfers of data.
+        """
         return cls(
             id=record.id,
             text=record.text,
-            vector=record.vector,
             score=record.score,
             boost=record.boost,
             title=record.title,
