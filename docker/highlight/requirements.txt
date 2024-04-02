@@ -1,0 +1,5 @@
+onnxruntime>=1.17.1
+mosec>=0.8.4
+transformers>=4.38.1
+msgspec>=0.18.6
+numpy
