@@ -138,6 +138,7 @@ class PgVectorsClient:
     @time_it
     def query_text(self, req: QueryDocRequest) -> list[DefaultTable]:
         if not self.querier.has_text_index():
+            logger.debug("skip text query since there is no text index")
             return []
         try:
             cursor = self.conn.execute(
@@ -153,6 +154,7 @@ class PgVectorsClient:
     @time_it
     def query_vector(self, req: QueryDocRequest) -> list[DefaultTable]:
         if not self.querier.has_vector_index():
+            logger.debug("skip vector query since there is no vector index")
             return []
         try:
             # TODO: filter
@@ -169,6 +171,7 @@ class PgVectorsClient:
     @time_it
     def query_sparse_vector(self, req: QueryDocRequest) -> list[DefaultTable]:
         if not self.querier.has_sparse_index():
+            logger.debug("skip sparse vector query since there is no sparse index")
             return []
         try:
             cursor = self.conn.execute(

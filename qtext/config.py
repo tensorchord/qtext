@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Annotated, Type
 
 import msgspec
-from reranker import CrossEncoderClient, Ranker
 
+from qtext.ranker import CrossEncoderClient, Ranker
 from qtext.schema import DefaultTable
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "qtext" / "config.json"

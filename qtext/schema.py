@@ -17,7 +17,8 @@ from msgspec.inspect import (
     StrType,
     UnionType,
 )
-from reranker import Record
+
+from qtext.spec import Record
 
 
 @dataclass(kw_only=True)
@@ -41,6 +42,7 @@ class DefaultTable:
             id=self.id,
             text=self.text,
             vector=self.vector,
+            sparse_vector=self.sparse_vector,
             score=self.score,
             boost=self.boost,
             title=self.title,
@@ -231,12 +233,22 @@ class Querier:
         )
 
     def text_index(self, table: str) -> str:
+        """
+        refer to https://dba.stackexchange.com/a/164081
+        """
         if not self.has_text_index():
             return ""
-        indexed_columns = " || ' ' || ".join(self.text_columns)
+        indexed_columns = (
+            self.text_columns[0]
+            if len(self.text_columns) == 1
+            else f"immutable_concat_ws('. ', {', '.join(self.text_columns)})"
+        )
         return (
+            "CREATE OR REPLACE FUNCTION immutable_concat_ws(text, VARIADIC text[]) "
+            "RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE "
+            "RETURN array_to_string($2, $1);"
             f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS fts_vector tsvector "
-            f"GENERATED ALWAYS AS (to_tsvector('english', {indexed_columns})) stored;"
+            f"GENERATED ALWAYS AS (to_tsvector('english', {indexed_columns})) stored; "
             f"CREATE INDEX IF NOT EXISTS ts_idx ON {table} USING GIN (fts_vector);"
         )
 

@@ -4,11 +4,11 @@ End-to-end service to query the text.
 
 - [x] full text search (Postgres GIN + text search)
 - [x] vector similarity search ([pgvecto.rs](https://github.com/tensorchord/pgvecto.rs) HNSW)
-- [x] generate vector if not provided
 - [x] sparse search ([pgvecto.rs](https://github.com/tensorchord/pgvecto.rs) HNSW)
-- [ ] filtering
-- [x] reranking with [reranker](https://github.com/kemingy/reranker)
+- [x] generate vector and sparse vector if not provided
+- [x] reranking
 - [x] semantic highlight
+- [ ] filtering
 
 ## How to use
 
@@ -26,9 +26,12 @@ Some of the dependent services can be opt-out:
 
 For the client example, check:
 - [test.py](./test.py): simple demo.
-- [test_cohere_wiki.py](./test_cohere_wiki.py): if you have the Cohere Token. Remember to change the `config.ranker.ranker` to the `CohereClient` (imported from `reranker`).
+- [test_cohere_wiki.py](./test_cohere_wiki.py): if you have the Cohere Token. Remember to change the `config.ranker.ranker` to the `CohereClient`.
+- [test_sparse.py](./test_sparse.py): hybrid search with text/vector/sparse indexes.
 
 ## API
+
+We provide a simple sync/async [client](./qtext/client.py). You can also refer to the OpenAPI and build your own client.
 
 - `/api/namespace` POST: create a new namespace and configure the index
 - `/api/doc` POST: add a new doc

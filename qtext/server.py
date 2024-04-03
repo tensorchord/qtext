@@ -12,6 +12,7 @@ from qtext.spec import (
     HighlightRequest,
     HighlightResponse,
     QueryDocRequest,
+    QueryExplainResponse,
 )
 from qtext.utils import msgspec_encode_np
 
@@ -75,6 +76,20 @@ class QueryResource:
         resp.content_type = falcon.MEDIA_JSON
 
 
+class QueryExplainResource:
+    def __init__(self, engine: RetrievalEngine) -> None:
+        self.engine = engine
+
+    def on_post(self, req: Request, resp: Response):
+        request = validate_request(QueryDocRequest, req, resp)
+        if request is None:
+            return
+
+        docs = self.engine.query_explain(request)
+        resp.data = msgspec.json.encode(docs)
+        resp.content_type = falcon.MEDIA_JSON
+
+
 class NamespaceResource:
     def __init__(self, engine: RetrievalEngine) -> None:
         self.engine = engine
@@ -119,6 +134,13 @@ class OpenAPIResource:
             response_type=list[engine.resp_cls],
         )
         self.openapi.register_route(
+            "/api/query_explain",
+            "post",
+            "Get the similar documents with explanation",
+            request_type=QueryDocRequest,
+            response_type=QueryExplainResponse,
+        )
+        self.openapi.register_route(
             "/api/highlight",
             "post",
             "Highlight the semantic similar words in the documents according to the query",
@@ -147,6 +169,7 @@ def create_app(engine: RetrievalEngine) -> App:
     app.add_route("/api/namespace", NamespaceResource(engine))
     app.add_route("/api/doc", DocResource(engine))
     app.add_route("/api/query", QueryResource(engine))
+    app.add_route("/api/query_explain", QueryExplainResource(engine))
     app.add_route("/api/highlight", HighlightResource(engine))
     app.add_route("/openapi/spec.json", OpenAPIResource(engine))
     app.add_route(

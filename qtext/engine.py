@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from time import perf_counter
+
 from qtext.config import Config
 from qtext.emb_client import EmbeddingClient, SparseEmbeddingClient
 from qtext.highlight_client import ENGLISH_STOPWORDS, HighlightClient
@@ -10,6 +12,7 @@ from qtext.spec import (
     HighlightRequest,
     HighlightResponse,
     QueryDocRequest,
+    QueryExplainResponse,
 )
 from qtext.utils import time_it
 
@@ -78,6 +81,37 @@ class RetrievalEngine:
         vec_results = self.pg_client.query_vector(req)
         sparse_results = self.pg_client.query_sparse_vector(req)
         return self.rank(req, kw_results, vec_results, sparse_results)
+
+    @time_it
+    def query_explain(self, req: QueryDocRequest) -> QueryExplainResponse:
+        if self.querier.has_vector_index() and not req.vector:
+            req.vector = self.emb_client.embedding(req.query)
+        if self.querier.has_sparse_index() and not req.sparse_vector:
+            req.sparse_vector = self.sparse_client.sparse_embedding(req.query)
+
+        explain = QueryExplainResponse()
+
+        vec_time = query_time = perf_counter()
+        vec_results = self.pg_client.query_vector(req)
+        explain.vector.elapsed = perf_counter() - vec_time
+        explain.vector.docs = [vec.to_record().simplify() for vec in vec_results]
+
+        sparse_time = perf_counter()
+        sparse_results = self.pg_client.query_sparse_vector(req)
+        explain.sparse.elapsed = perf_counter() - sparse_time
+        explain.sparse.docs = [
+            sparse.to_record().simplify() for sparse in sparse_results
+        ]
+
+        text_time = perf_counter()
+        text_results = self.pg_client.query_text(req)
+        explain.text.elapsed = perf_counter() - text_time
+        explain.text.docs = [text.to_record().simplify() for text in text_results]
+
+        ranked = self.rank(req, text_results, vec_results, sparse_results)
+        explain.ranked.elapsed = perf_counter() - query_time
+        explain.ranked.docs = [rank.to_record().simplify() for rank in ranked]
+        return explain
 
     @time_it
     def highlight(self, req: HighlightRequest) -> HighlightResponse:
