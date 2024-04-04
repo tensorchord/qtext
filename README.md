@@ -42,7 +42,7 @@ Check the [OpenAPI documentation](http://127.0.0.1:8000/openapi/redoc) for more 
 
 ## Terminal UI
 
-We provide a simple terminal UI powered by [Textual]([https://](https://github.com/textualize/textual) for you to interact with the service.
+We provide a simple terminal UI powered by [Textual](https://github.com/textualize/textual) for you to interact with the service.
 
 ```bash
 python tui.py $QTEXT_PORT
