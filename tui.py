@@ -83,8 +83,14 @@ class DocTable(ScrollableContainer):
             table.add_row(doc.id, doc.title, doc.text)
 
     def fill_rank(self, ranked: RankedResponse):
-        def check_index_value(value: int | None) -> str:
-            return "❌" if value is None else value
+        def pretty_index_value(value: int | None, base: int) -> str:
+            if value is None:
+                return "❌"
+            if value > base:
+                return f"🔼{value}"
+            elif value < base:
+                return f"🔽{value}"
+            return f"🔵{value}"
 
         time = self.query_one(Static)
         time.update(f"Time cost: {ranked.elapsed:.6f}")
@@ -96,9 +102,9 @@ class DocTable(ScrollableContainer):
         ):
             table.add_row(
                 i,
-                check_index_value(from_vec),
-                check_index_value(from_sparse),
-                check_index_value(from_text),
+                pretty_index_value(from_vec, i),
+                pretty_index_value(from_sparse, i),
+                pretty_index_value(from_text, i),
                 doc.id,
                 doc.title,
                 doc.text,
