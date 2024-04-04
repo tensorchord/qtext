@@ -5,6 +5,7 @@ from time import perf_counter
 from qtext.config import Config
 from qtext.emb_client import EmbeddingClient, SparseEmbeddingClient
 from qtext.highlight_client import ENGLISH_STOPWORDS, HighlightClient
+from qtext.metrics import rerank_histogram
 from qtext.pg_client import PgVectorsClient
 from qtext.schema import DefaultTable, Querier
 from qtext.spec import (
@@ -58,6 +59,7 @@ class RetrievalEngine:
         self.pg_client.add_doc(req)
 
     @time_it
+    @rerank_histogram.time()
     def rank(
         self,
         req: QueryDocRequest,

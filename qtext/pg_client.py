@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from time import perf_counter
+
 import numpy as np
 import psycopg
 from psycopg.adapt import Dumper, Loader
@@ -7,6 +9,12 @@ from psycopg.rows import dict_row
 from psycopg.types import TypeInfo
 
 from qtext.log import logger
+from qtext.metrics import (
+    doc_counter,
+    sparse_search_histogram,
+    text_search_histogram,
+    vector_search_histogram,
+)
 from qtext.schema import DefaultTable, Querier
 from qtext.spec import AddNamespaceRequest, QueryDocRequest, SparseEmbedding
 from qtext.utils import time_it
@@ -130,6 +138,7 @@ class PgVectorsClient:
                 placeholders,
             )
             self.conn.commit()
+            doc_counter.labels(req.namespace).inc()
         except psycopg.errors.Error as err:
             logger.info("pg client add doc error", exc_info=err)
             self.conn.rollback()
@@ -141,15 +150,20 @@ class PgVectorsClient:
             logger.debug("skip text query since there is no text index")
             return []
         try:
+            start_time = perf_counter()
             cursor = self.conn.execute(
                 self.querier.text_query(req.namespace),
                 (" | ".join(req.query.strip().split(" ")), req.limit),
+            )
+            results = cursor.fetchall()
+            text_search_histogram.labels(req.namespace).observe(
+                perf_counter() - start_time
             )
         except psycopg.errors.Error as err:
             logger.info("pg client query text error", exc_info=err)
             self.conn.rollback()
             raise RuntimeError("query text error") from err
-        return [self.resp_cls(**res) for res in cursor.fetchall()]
+        return [self.resp_cls(**res) for res in results]
 
     @time_it
     def query_vector(self, req: QueryDocRequest) -> list[DefaultTable]:
@@ -158,15 +172,20 @@ class PgVectorsClient:
             return []
         try:
             # TODO: filter
+            start_time = perf_counter()
             cursor = self.conn.execute(
                 self.querier.vector_query(req.namespace),
                 (req.vector, req.limit),
+            )
+            results = cursor.fetchall()
+            vector_search_histogram.labels(req.namespace).observe(
+                perf_counter() - start_time
             )
         except psycopg.errors.Error as err:
             logger.info("pg client query vector error", exc_info=err)
             self.conn.rollback()
             raise RuntimeError("query vector error") from err
-        return [self.resp_cls(**res) for res in cursor.fetchall()]
+        return [self.resp_cls(**res) for res in results]
 
     @time_it
     def query_sparse_vector(self, req: QueryDocRequest) -> list[DefaultTable]:
@@ -174,12 +193,17 @@ class PgVectorsClient:
             logger.debug("skip sparse vector query since there is no sparse index")
             return []
         try:
+            start_time = perf_counter()
             cursor = self.conn.execute(
                 self.querier.sparse_query(req.namespace),
                 (req.sparse_vector, req.limit),
+            )
+            results = cursor.fetchall()
+            sparse_search_histogram.labels(req.namespace).observe(
+                perf_counter() - start_time
             )
         except psycopg.errors.Error as err:
             logger.info("pg client query sparse vector error", exc_info=err)
             self.conn.rollback()
             raise RuntimeError("query sparse vector error") from err
-        return [self.resp_cls(**res) for res in cursor.fetchall()]
+        return [self.resp_cls(**res) for res in results]

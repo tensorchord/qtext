@@ -4,6 +4,7 @@ import httpx
 import msgspec
 
 from qtext.log import logger
+from qtext.metrics import highlight_histogram
 from qtext.spec import HighlightScore
 
 
@@ -11,6 +12,7 @@ class HighlightClient:
     def __init__(self, addr: str) -> None:
         self.client = httpx.Client(base_url=addr)
 
+    @highlight_histogram.time()
     def highlight_score(
         self, query: str, docs: list[str]
     ) -> list[list[HighlightScore]]:

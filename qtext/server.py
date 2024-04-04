@@ -4,6 +4,8 @@ import falcon
 import msgspec
 from defspec import OpenAPI, RenderTemplate
 from falcon import App, Request, Response
+from prometheus_client import REGISTRY
+from prometheus_client.openmetrics import exposition as openmetrics
 
 from qtext.engine import RetrievalEngine
 from qtext.log import logger
@@ -163,9 +165,16 @@ class OpenAPIRender:
         resp.text = self.template
 
 
+class OpenMetrics:
+    def on_get(self, req: Request, resp: Response):
+        resp.content_type = openmetrics.CONTENT_TYPE_LATEST
+        resp.text = openmetrics.generate_latest(REGISTRY)
+
+
 def create_app(engine: RetrievalEngine) -> App:
     app = App()
     app.add_route("/", HealthCheck())
+    app.add_route("/metrics", OpenMetrics())
     app.add_route("/api/namespace", NamespaceResource(engine))
     app.add_route("/api/doc", DocResource(engine))
     app.add_route("/api/query", QueryResource(engine))

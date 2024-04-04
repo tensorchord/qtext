@@ -8,6 +8,9 @@ End-to-end service to query the text.
 - [x] generate vector and sparse vector if not provided
 - [x] reranking
 - [x] semantic highlight
+- [x] TUI
+- [x] OpenAPI
+- [x] OpenMetrics
 - [ ] filtering
 
 ## How to use
@@ -45,6 +48,7 @@ Check the [OpenAPI documentation](http://127.0.0.1:8000/openapi/redoc) for more 
 We provide a simple terminal UI powered by [Textual](https://github.com/textualize/textual) for you to interact with the service.
 
 ```bash
+pip install textual
 python tui.py $QTEXT_PORT
 ```
 

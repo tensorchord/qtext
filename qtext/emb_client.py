@@ -5,6 +5,7 @@ import msgspec
 import openai
 
 from qtext.log import logger
+from qtext.metrics import embedding_histogram, sparse_histogram
 from qtext.spec import SparseEmbedding
 from qtext.utils import time_it
 
@@ -19,6 +20,7 @@ class EmbeddingClient:
         )
 
     @time_it
+    @embedding_histogram.time()
     def embedding(self, text: str | list[str]) -> list[float]:
         response = self.client.embeddings.create(
             model=self.model_name,
@@ -36,6 +38,7 @@ class SparseEmbeddingClient:
         self.decoder = msgspec.json.Decoder(type=list[SparseEmbedding])
 
     @time_it
+    @sparse_histogram.time()
     def sparse_embedding(
         self, text: str | list[str]
     ) -> list[SparseEmbedding] | SparseEmbedding:
