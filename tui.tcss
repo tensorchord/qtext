@@ -1,0 +1,30 @@
+Form {
+    border: ascii $secondary;
+    width: 100%;
+    height: 12;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+Input {
+    width: 85%;
+}
+
+Label {
+    content-align: right middle;
+    border: blank;
+    width: 10%;
+    min-width: 12;
+}
+
+DocTable {
+    border: ascii $secondary;
+}
+
+#elapsed {
+    text-align: center;
+    padding: 1 0;
+}
+
+DataTable {
+}

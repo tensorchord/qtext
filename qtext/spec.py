@@ -78,11 +78,37 @@ class RetrieveResponse(msgspec.Struct, kw_only=True):
     elapsed: float = 0.0
 
 
+class RankedResponse(msgspec.Struct, kw_only=True):
+    docs: list[SimpleRecord] = msgspec.field(default_factory=list)
+    elapsed: float = 0.0
+    from_vector: list[int | None] = msgspec.field(default_factory=list)
+    from_sparse: list[int | None] = msgspec.field(default_factory=list)
+    from_text: list[int | None] = msgspec.field(default_factory=list)
+
+    def fill_hybrid_ids(
+        self, vector: RetrieveResponse, sparse: RetrieveResponse, text: RetrieveResponse
+    ):
+        vector_ids = [doc.id for doc in vector.docs]
+        sparse_ids = [doc.id for doc in sparse.docs]
+        text_ids = [doc.id for doc in text.docs]
+        self.from_vector = [
+            vector_ids.index(doc.id) if doc.id in vector_ids else None
+            for doc in self.docs
+        ]
+        self.from_sparse = [
+            sparse_ids.index(doc.id) if doc.id in sparse_ids else None
+            for doc in self.docs
+        ]
+        self.from_text = [
+            text_ids.index(doc.id) if doc.id in text_ids else None for doc in self.docs
+        ]
+
+
 class QueryExplainResponse(msgspec.Struct, kw_only=True):
     vector: RetrieveResponse = msgspec.field(default_factory=RetrieveResponse)
     sparse: RetrieveResponse = msgspec.field(default_factory=RetrieveResponse)
     text: RetrieveResponse = msgspec.field(default_factory=RetrieveResponse)
-    ranked: RetrieveResponse = msgspec.field(default_factory=RetrieveResponse)
+    ranked: RankedResponse = msgspec.field(default_factory=RankedResponse)
 
 
 class AddNamespaceRequest(msgspec.Struct, frozen=True, kw_only=True):

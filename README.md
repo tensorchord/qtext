@@ -40,6 +40,14 @@ We provide a simple sync/async [client](./qtext/client.py). You can also refer t
 
 Check the [OpenAPI documentation](http://127.0.0.1:8000/openapi/redoc) for more information (this requires the qtext service).
 
+## Terminal UI
+
+We provide a simple terminal UI powered by [Textual]([https://](https://github.com/textualize/textual) for you to interact with the service.
+
+```bash
+python tui.py $QTEXT_PORT
+```
+
 ## Configurations
 
 Check the [config.py](./qtext/config.py) for more detail. It will read the `$HOME/.config/qtext/config.json` if this file exists.

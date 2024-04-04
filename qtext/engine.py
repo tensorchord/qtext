@@ -91,7 +91,7 @@ class RetrievalEngine:
 
         explain = QueryExplainResponse()
 
-        vec_time = query_time = perf_counter()
+        vec_time = perf_counter()
         vec_results = self.pg_client.query_vector(req)
         explain.vector.elapsed = perf_counter() - vec_time
         explain.vector.docs = [vec.to_record().simplify() for vec in vec_results]
@@ -108,9 +108,11 @@ class RetrievalEngine:
         explain.text.elapsed = perf_counter() - text_time
         explain.text.docs = [text.to_record().simplify() for text in text_results]
 
+        rank_time = perf_counter()
         ranked = self.rank(req, text_results, vec_results, sparse_results)
-        explain.ranked.elapsed = perf_counter() - query_time
+        explain.ranked.elapsed = perf_counter() - rank_time
         explain.ranked.docs = [rank.to_record().simplify() for rank in ranked]
+        explain.ranked.fill_hybrid_ids(explain.vector, explain.sparse, explain.text)
         return explain
 
     @time_it
