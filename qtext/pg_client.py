@@ -4,6 +4,7 @@ from time import perf_counter
 
 import numpy as np
 import psycopg
+from psycopg import sql
 from psycopg.adapt import Dumper, Loader
 from psycopg.rows import dict_row
 from psycopg.types import TypeInfo
@@ -131,9 +132,14 @@ class PgVectorsClient:
                 attributes.remove(primary_id)
             placeholders = [getattr(req, key) for key in attributes]
             self.conn.execute(
-                (
-                    f"INSERT INTO {req.namespace} ({','.join(attributes)})"
-                    f"VALUES ({','.join(['%s']*len(placeholders))})"
+                sql.SQL(
+                    "INSERT INTO {table} ({fields}) VALUES ({placeholders})"
+                ).format(
+                    table=sql.Identifier(req.namespace),
+                    fields=sql.SQL(",").join(map(sql.Identifier, attributes)),
+                    placeholders=sql.SQL(",").join(
+                        sql.Placeholder() for _ in range(len(placeholders))
+                    ),
                 ),
                 placeholders,
             )

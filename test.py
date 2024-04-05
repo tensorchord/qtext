@@ -4,9 +4,13 @@ import httpx
 
 namespace = "document"
 dim = 768
+vocab = 30522
 
 client = httpx.Client(base_url="http://127.0.0.1:8000")
-resp = client.post("/api/namespace", json={"name": namespace, "vector_dim": dim})
+resp = client.post(
+    "/api/namespace",
+    json={"name": namespace, "vector_dim": dim, "sparse_vector_dim": vocab},
+)
 resp.raise_for_status()
 for i, text in enumerate(
     [

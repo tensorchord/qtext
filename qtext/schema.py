@@ -17,6 +17,7 @@ from msgspec.inspect import (
     StrType,
     UnionType,
 )
+from psycopg import sql
 
 from qtext.spec import Record
 
@@ -182,26 +183,26 @@ class Querier:
                 "Sparse vector dimension is required when schema has sparse index"
             )
 
-        sql = f"CREATE TABLE IF NOT EXISTS {name} ("
+        create_table_sql = f"CREATE TABLE IF NOT EXISTS {name} ("
         for i, f in enumerate(self.fields):
             if f.name == self.primary_key:
-                sql += f"{f.name} SERIAL PRIMARY KEY, "
+                create_table_sql += f"{f.name} SERIAL PRIMARY KEY, "
                 continue
             elif f.name == self.vector_column:
-                sql += f"{f.name} vector({dim}) "
+                create_table_sql += f"{f.name} vector({dim}) "
             elif f.name == self.sparse_column:
-                sql += f"{f.name} svector({sparse_dim}) "
+                create_table_sql += f"{f.name} svector({sparse_dim}) "
             else:
-                sql += f"{f.name} {Querier.to_pg_type(f.type)} "
+                create_table_sql += f"{f.name} {Querier.to_pg_type(f.type)} "
 
             if f.required:
-                sql += "NOT NULL "
+                create_table_sql += "NOT NULL "
             if f.default not in (NODEFAULT, None):
-                sql += f"DEFAULT {f.default} "
+                create_table_sql += f"DEFAULT {f.default} "
 
             if i < len(self.fields) - 1:
-                sql += ", "
-        return sql + ");"
+                create_table_sql += ", "
+        return create_table_sql + ");"
 
     def has_vector_index(self) -> bool:
         return self.vector_column is not None
@@ -212,66 +213,88 @@ class Querier:
     def has_text_index(self) -> bool:
         return len(self.text_columns) > 0
 
-    def vector_index(self, table: str) -> str:
+    def vector_index(self, table: str) -> sql.SQL:
         """
         This assumes that all the vectors are normalized, so inner product
         is used since it can be computed efficiently.
         """
         if not self.has_vector_index():
             return ""
-        return (
-            f"CREATE INDEX IF NOT EXISTS {table}_vectors ON {table} USING "
-            f"vectors ({self.vector_column} vector_dot_ops);"
+        return sql.SQL(
+            "CREATE INDEX IF NOT EXISTS {vector_index} ON {table} USING "
+            "vectors ({vector_column} vector_dot_ops);"
+        ).format(
+            table=sql.Identifier(table),
+            vector_index=sql.Identifier(f"{table}_vectors"),
+            vector_column=sql.Identifier(self.vector_column),
         )
 
-    def sparse_index(self, table: str) -> str:
+    def sparse_index(self, table: str) -> sql.SQL:
         if not self.has_sparse_index():
             return ""
-        return (
-            f"CREATE INDEX IF NOT EXISTS {table}_sparse ON {table} USING "
-            f"vectors ({self.sparse_column} svector_dot_ops);"
+        return sql.SQL(
+            "CREATE INDEX IF NOT EXISTS {sparse_index} ON {table} USING "
+            "vectors ({sparse_column} svector_dot_ops);"
+        ).format(
+            table=sql.Identifier(table),
+            sparse_index=sql.Identifier(f"{table}_sparse"),
+            sparse_column=sql.Identifier(self.sparse_column),
         )
 
-    def text_index(self, table: str) -> str:
+    def text_index(self, table: str) -> sql.SQL:
         """
         refer to https://dba.stackexchange.com/a/164081
         """
         if not self.has_text_index():
             return ""
         indexed_columns = (
-            self.text_columns[0]
+            sql.Identifier(self.text_columns[0])
             if len(self.text_columns) == 1
             else f"immutable_concat_ws('. ', {', '.join(self.text_columns)})"
         )
-        return (
+        return sql.SQL(
             "CREATE OR REPLACE FUNCTION immutable_concat_ws(text, VARIADIC text[]) "
             "RETURNS text LANGUAGE sql IMMUTABLE PARALLEL SAFE "
             "RETURN array_to_string($2, $1);"
-            f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS fts_vector tsvector "
-            f"GENERATED ALWAYS AS (to_tsvector('english', {indexed_columns})) stored; "
-            f"CREATE INDEX IF NOT EXISTS ts_idx ON {table} USING GIN (fts_vector);"
+            "ALTER TABLE {table} ADD COLUMN IF NOT EXISTS fts_vector tsvector "
+            "GENERATED ALWAYS AS (to_tsvector('english', {indexed_columns})) stored; "
+            "CREATE INDEX IF NOT EXISTS ts_idx ON {table} USING GIN (fts_vector);"
+        ).format(
+            table=sql.Identifier(table),
+            indexed_columns=indexed_columns,
         )
 
-    def vector_query(self, table: str) -> str:
-        columns = ", ".join(f.name for f in self.fields)
-        return (
-            f"SELECT {columns}, {self.vector_column} <#> %s AS rank "
-            f"FROM {table} ORDER by rank LIMIT %s;"
+    def vector_query(self, table: str) -> sql.SQL:
+        columns = sql.SQL(", ").join(sql.Identifier(f.name) for f in self.fields)
+        return sql.SQL(
+            "SELECT {columns}, {vector_column} <#> %s AS rank "
+            "FROM {table} ORDER by rank LIMIT %s;"
+        ).format(
+            table=sql.Identifier(table),
+            columns=columns,
+            vector_column=sql.Identifier(self.vector_column),
         )
 
-    def sparse_query(self, table: str) -> str:
-        columns = ", ".join(f.name for f in self.fields)
-        return (
-            f"SELECT {columns}, {self.sparse_column} <#> %s AS rank "
-            f"FROM {table} ORDER by rank LIMIT %s;"
+    def sparse_query(self, table: str) -> sql.SQL:
+        columns = sql.SQL(", ").join(sql.Identifier(f.name) for f in self.fields)
+        return sql.SQL(
+            "SELECT {columns}, {sparse_column} <#> %s AS rank "
+            "FROM {table} ORDER by rank LIMIT %s;"
+        ).format(
+            table=sql.Identifier(table),
+            columns=columns,
+            sparse_column=sql.Identifier(self.sparse_column),
         )
 
-    def text_query(self, table: str) -> str:
-        columns = ", ".join(f.name for f in self.fields)
-        return (
-            f"SELECT {columns}, ts_rank_cd(fts_vector, query) AS rank "
-            f"FROM {table}, to_tsquery(%s) query "
+    def text_query(self, table: str) -> sql.SQL:
+        columns = sql.SQL(", ").join(sql.Identifier(f.name) for f in self.fields)
+        return sql.SQL(
+            "SELECT {columns}, ts_rank_cd(fts_vector, query) AS rank "
+            "FROM {table}, to_tsquery(%s) query "
             "WHERE fts_vector @@ query order by rank desc LIMIT %s;"
+        ).format(
+            table=sql.Identifier(table),
+            columns=columns,
         )
 
     def columns(self) -> list[str]:
