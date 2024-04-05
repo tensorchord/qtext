@@ -250,7 +250,9 @@ class Querier:
         indexed_columns = (
             sql.Identifier(self.text_columns[0])
             if len(self.text_columns) == 1
-            else f"immutable_concat_ws('. ', {', '.join(self.text_columns)})"
+            else sql.SQL("immutable_concat_ws('. ', {fields})").format(
+                fields=sql.SQL(", ").join(sql.Identifier(c) for c in self.text_columns)
+            )
         )
         return sql.SQL(
             "CREATE OR REPLACE FUNCTION immutable_concat_ws(text, VARIADIC text[]) "

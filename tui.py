@@ -177,6 +177,7 @@ class QueryApp(App):
         tabs = self.query(TabPane)
         for tab in tabs.nodes:
             table = tab.get_child_by_type(DocTable)
+            table.clear()
             docs: RetrieveResponse = getattr(explain, tab.id)
             if tab.id == "ranked":
                 table.fill_rank(docs)
