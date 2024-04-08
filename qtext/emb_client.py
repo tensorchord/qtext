@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import cohere
 import httpx
 import msgspec
 import openai
@@ -29,6 +30,18 @@ class EmbeddingClient:
         if len(response.data) > 1:
             return [data.embedding for data in response.data]
         return response.data[0].embedding
+
+
+class CohereEmbeddingClient:
+    def __init__(self, model_name: str, api_key: str):
+        self.client = cohere.Client(api_key=api_key)
+        self.model_name = model_name
+
+    @time_it
+    @embedding_histogram.time()
+    def embedding(self, text: str) -> list[float]:
+        response = self.client.embed([text], model=self.model_name)
+        return response.embeddings[0]
 
 
 class SparseEmbeddingClient:

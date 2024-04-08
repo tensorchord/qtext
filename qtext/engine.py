@@ -3,7 +3,11 @@ from __future__ import annotations
 from time import perf_counter
 
 from qtext.config import Config
-from qtext.emb_client import EmbeddingClient, SparseEmbeddingClient
+from qtext.emb_client import (
+    CohereEmbeddingClient,
+    EmbeddingClient,
+    SparseEmbeddingClient,
+)
 from qtext.highlight_client import ENGLISH_STOPWORDS, HighlightClient
 from qtext.metrics import rerank_histogram
 from qtext.pg_client import PgVectorsClient
@@ -25,12 +29,18 @@ class RetrievalEngine:
         self.resp_cls = self.querier.table_type
         self.pg_client = PgVectorsClient(config.vector_store.url, querier=self.querier)
         self.highlight_client = HighlightClient(config.highlight.addr)
-        self.emb_client = EmbeddingClient(
-            model_name=config.embedding.model_name,
-            api_key=config.embedding.api_key,
-            endpoint=config.embedding.api_endpoint,
-            timeout=config.embedding.timeout,
-        )
+        if config.embedding.client == "openai":
+            self.emb_client = EmbeddingClient(
+                model_name=config.embedding.model_name,
+                api_key=config.embedding.api_key,
+                endpoint=config.embedding.api_endpoint,
+                timeout=config.embedding.timeout,
+            )
+        else:
+            self.emb_client = CohereEmbeddingClient(
+                model_name=config.embedding.model_name,
+                api_key=config.embedding.api_key,
+            )
         self.sparse_client = SparseEmbeddingClient(
             endpoint=config.sparse.addr,
             dim=config.sparse.dim,

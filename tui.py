@@ -40,7 +40,7 @@ class Form(Container):
         with HorizontalScroll(id="namespace"):
             yield Label("Namespace:")
             yield Input(
-                "sparse_test",
+                "cohere_wiki",
                 placeholder="Type the namespace you want to query",
                 max_length=128,
                 id="namespace-input",
