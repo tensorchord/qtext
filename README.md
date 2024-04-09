@@ -8,6 +8,7 @@ End-to-end service to query the text.
 - [x] generate vector and sparse vector if not provided
 - [x] reranking
 - [x] semantic highlight
+- [x] hybrid search explanation
 - [x] TUI
 - [x] OpenAPI
 - [x] OpenMetrics

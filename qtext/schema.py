@@ -19,7 +19,7 @@ from msgspec.inspect import (
 )
 from psycopg import sql
 
-from qtext.spec import Record
+from qtext.spec import Record, SparseEmbedding
 
 
 @dataclass(kw_only=True)
@@ -27,8 +27,8 @@ class DefaultTable:
     id: int | None = field(default=None, metadata={"primary_key": True})
     text: str = field(metadata={"text_index": True})
     vector: list[float] = field(default_factory=list, metadata={"vector_index": True})
-    sparse_vector: list[float] = field(
-        default_factory=list, metadata={"sparse_index": True}
+    sparse_vector: SparseEmbedding | None = field(
+        default=None, metadata={"sparse_index": True}
     )
     title: str | None = field(default=None, metadata={"text_index": True})
     summary: str | None = None
@@ -116,8 +116,8 @@ class Querier:
     def retrieve_vector(self, obj):
         return getattr(obj, self.vector_column)
 
-    def fill_sparse_vector(self, obj, vector: list[float]):
-        setattr(obj, self.sparse_column, vector)
+    def fill_sparse_vector(self, obj, sparse: SparseEmbedding):
+        setattr(obj, self.sparse_column, sparse)
 
     def retrieve_sparse_vector(self, obj):
         return getattr(obj, self.sparse_column)

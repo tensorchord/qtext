@@ -6,6 +6,7 @@ import numpy as np
 import psycopg
 from psycopg import sql
 from psycopg.adapt import Dumper, Loader
+from psycopg.pq import Format
 from psycopg.rows import dict_row
 from psycopg.types import TypeInfo
 
@@ -60,12 +61,19 @@ def register_vector_type(conn: psycopg.Connection, info: TypeInfo):
 
 
 class SparseVectorDumper(Dumper):
+    format = Format.BINARY
+
     def dump(self, obj):
-        if isinstance(obj, np.ndarray):
-            return f"[{','.join(map(str, obj))}]".encode()
         if isinstance(obj, SparseEmbedding):
-            return obj.to_str().encode()
+            return obj.to_bytes()
         raise ValueError(f"unsupported type {type(obj)}")
+
+
+class SparseVectorLoader(Loader):
+    format = Format.BINARY
+
+    def load(self, buf):
+        return SparseEmbedding.from_bytes(buf)
 
 
 def register_sparse_vector(conn: psycopg.Connection):
@@ -78,13 +86,13 @@ def register_svector_type(conn: psycopg.Connection, info: TypeInfo):
         raise ValueError("vector type not found")
     info.register(conn)
 
-    class SparseVectorTextDumper(SparseVectorDumper):
+    class SparseVectorBinaryDumper(SparseVectorDumper):
         oid = info.oid
 
     adapters = conn.adapters
-    adapters.register_dumper(SparseEmbedding, SparseVectorTextDumper)
-    adapters.register_dumper(np.ndarray, SparseVectorTextDumper)
+    adapters.register_dumper(SparseEmbedding, SparseVectorBinaryDumper)
     adapters.register_loader(info.oid, VectorLoader)
+    adapters.register_loader(info.oid, SparseVectorLoader)
 
 
 class PgVectorsClient:

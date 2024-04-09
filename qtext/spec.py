@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import struct
 from datetime import datetime
 
 import msgspec
@@ -49,13 +50,30 @@ class SimpleRecord(msgspec.Struct, kw_only=True):
 
 class SparseEmbedding(msgspec.Struct, kw_only=True, frozen=True):
     dim: int
-    indices: list[int]
-    values: list[float]
+    indices: list[int] = msgspec.field(default_factory=list)
+    values: list[float] = msgspec.field(default_factory=list)
 
     def to_str(self) -> str:
         dense = np.zeros(self.dim)
         dense[self.indices] = self.values
         return f"[{','.join(map(str, dense))}]"
+
+    def to_bytes(self) -> bytes:
+        return struct.pack(
+            f"<II{len(self.indices)}I{len(self.values)}f",
+            self.dim,
+            len(self.indices),
+            *self.indices,
+            *self.values,
+        )
+
+    @classmethod
+    def from_bytes(cls, buf: bytes) -> SparseEmbedding:
+        dim = struct.unpack_from("<I", buf)[0]
+        length = struct.unpack_from("<I", buf, 4)[0]
+        indices = struct.unpack_from(f"<{length}I", buf, 8)
+        values = struct.unpack_from(f"<{length}f", buf, 8 + 4 * length)
+        return SparseEmbedding(dim=dim, indices=list(indices), values=list(values))
 
 
 class QueryDocRequest(msgspec.Struct, kw_only=True):

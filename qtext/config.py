@@ -24,7 +24,7 @@ class VectorStoreConfig(msgspec.Struct, kw_only=True, frozen=True):
 
 
 class EmbeddingConfig(msgspec.Struct, kw_only=True, frozen=True):
-    client: Literal["openai", "cohere"] = "cohere"
+    client: Literal["openai", "cohere"] = "openai"
     model_name: str = "thenlper/gte-base"
     dim: Annotated[int, msgspec.Meta(ge=1, le=65535)] = 768
     api_key: str = "fake"
