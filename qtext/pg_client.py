@@ -86,7 +86,7 @@ def register_sparse_vector(conn: psycopg.Connection):
 
 def register_svector_type(conn: psycopg.Connection, info: TypeInfo):
     if info is None:
-        raise ValueError("vector type not found")
+        raise ValueError("svector type not found")
     info.register(conn)
 
     class SparseVectorBinaryDumper(SparseVectorDumper):
@@ -94,7 +94,6 @@ def register_svector_type(conn: psycopg.Connection, info: TypeInfo):
 
     adapters = conn.adapters
     adapters.register_dumper(SparseEmbedding, SparseVectorBinaryDumper)
-    adapters.register_loader(info.oid, VectorLoader)
     adapters.register_loader(info.oid, SparseVectorLoader)
 
 

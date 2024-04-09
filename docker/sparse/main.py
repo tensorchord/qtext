@@ -22,7 +22,7 @@ class SpladePP(Worker):
         self.dim = self.tokenizer.vocab_size
 
     def forward(self, queries: list[str]) -> list[SparseEmbedding]:
-        tokens = self.tokenizer(queries, padding=True, return_tensors="np")
+        tokens = self.tokenizer(queries, padding=True, truncation=True, return_tensors="np")
         outputs = self.session.run(
             None,
             {

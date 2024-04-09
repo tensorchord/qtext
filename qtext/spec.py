@@ -53,14 +53,21 @@ class SparseEmbedding(msgspec.Struct, kw_only=True, frozen=True):
     indices: list[int] = msgspec.field(default_factory=list)
     values: list[float] = msgspec.field(default_factory=list)
 
+    def __post_init__(self):
+        if len(self.indices) != len(self.values):
+            raise ValueError("indices and values must have the same length")
+        if len(set(self.indices)) != len(self.values):
+            raise ValueError("indices must be unique")
+        if self.indices != sorted(self.indices):
+            self.values = [v for _, v in sorted(zip(self.indices, self.values))]
+            self.indices.sort()
+
     def to_str(self) -> str:
         dense = np.zeros(self.dim)
         dense[self.indices] = self.values
         return f"[{','.join(map(str, dense))}]"
 
     def to_bytes(self) -> bytes:
-        if len(self.indices) != len(self.values):
-            raise ValueError("indices and values must have the same length")
         return struct.pack(
             f"<II{len(self.indices)}I{len(self.values)}f",
             self.dim,
