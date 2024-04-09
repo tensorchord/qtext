@@ -13,11 +13,11 @@ from psycopg.types import TypeInfo
 
 from qtext.log import logger
 from qtext.metrics import (
+    add_doc_histogram,
     doc_counter,
     sparse_search_histogram,
     text_search_histogram,
     vector_search_histogram,
-    add_doc_histogram,
 )
 from qtext.schema import DefaultTable, Querier
 from qtext.spec import AddNamespaceRequest, QueryDocRequest, SparseEmbedding
