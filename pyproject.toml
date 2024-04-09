@@ -19,6 +19,7 @@ dependencies = [
     "httpx~=0.27",
     "cohere~=4.45",
     "prometheus-client~=0.20",
+    "numpy~=1.26",
 ]
 [project.optional-dependencies]
 dev = [

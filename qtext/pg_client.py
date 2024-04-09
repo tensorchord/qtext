@@ -17,6 +17,7 @@ from qtext.metrics import (
     sparse_search_histogram,
     text_search_histogram,
     vector_search_histogram,
+    add_doc_histogram,
 )
 from qtext.schema import DefaultTable, Querier
 from qtext.spec import AddNamespaceRequest, QueryDocRequest, SparseEmbedding
@@ -141,6 +142,7 @@ class PgVectorsClient:
             if primary_id is None or getattr(req, primary_id, None) is None:
                 attributes.remove(primary_id)
             placeholders = [getattr(req, key) for key in attributes]
+            start_time = perf_counter()
             self.conn.execute(
                 sql.SQL(
                     "INSERT INTO {table} ({fields}) VALUES ({placeholders})"
@@ -154,6 +156,7 @@ class PgVectorsClient:
                 placeholders,
             )
             self.conn.commit()
+            add_doc_histogram.labels(req.namespace).observe(perf_counter() - start_time)
             doc_counter.labels(req.namespace).inc()
         except psycopg.errors.Error as err:
             logger.info("pg client add doc error", exc_info=err)

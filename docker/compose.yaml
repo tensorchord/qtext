@@ -31,6 +31,7 @@ services:
     image: "kemingy/spladepp"
     environment:
       - MOSEC_TIMEOUT=10000
+      - HF_TOKEN=hf_xxxxxxxxx # add your huggingface token here (required by https://huggingface.co/prithivida/Splade_PP_en_v1)
     ports:
       - "8083:8000"
 
