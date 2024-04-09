@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import struct
 from time import perf_counter
 
 import numpy as np
@@ -23,17 +24,18 @@ from qtext.utils import time_it
 
 
 class VectorDumper(Dumper):
+    format = Format.BINARY
+
     def dump(self, obj):
-        if isinstance(obj, np.ndarray):
-            return f"[{','.join(map(str, obj))}]".encode()
-        return str(obj).replace(" ", "").encode()
+        return struct.pack(f"<H{len(obj)}f", len(obj), *obj)
 
 
 class VectorLoader(Loader):
     def load(self, buf):
         if isinstance(buf, memoryview):
             buf = bytes(buf)
-        return np.array(buf.decode()[1:-1].split(","), dtype=np.float32)
+        dim = struct.unpack_from("<H", buf)[0]
+        return np.frombuffer(buf, dtype="<f", count=dim, offset=2)
 
 
 async def register_vector_async(conn: psycopg.AsyncConnection):
@@ -51,12 +53,12 @@ def register_vector_type(conn: psycopg.Connection, info: TypeInfo):
         raise ValueError("vector type not found")
     info.register(conn)
 
-    class VectorTextDumper(VectorDumper):
+    class VectorBinaryDumper(VectorDumper):
         oid = info.oid
 
     adapters = conn.adapters
-    adapters.register_dumper(list, VectorTextDumper)
-    adapters.register_dumper(np.ndarray, VectorTextDumper)
+    adapters.register_dumper(list, VectorBinaryDumper)
+    adapters.register_dumper(np.ndarray, VectorBinaryDumper)
     adapters.register_loader(info.oid, VectorLoader)
 
 
@@ -168,6 +170,7 @@ class PgVectorsClient:
             cursor = self.conn.execute(
                 self.querier.text_query(req.namespace),
                 (" | ".join(req.query.strip().split(" ")), req.limit),
+                binary=True,
             )
             results = cursor.fetchall()
             text_search_histogram.labels(req.namespace).observe(
@@ -190,6 +193,7 @@ class PgVectorsClient:
             cursor = self.conn.execute(
                 self.querier.vector_query(req.namespace),
                 (req.vector, req.limit),
+                binary=True,
             )
             results = cursor.fetchall()
             vector_search_histogram.labels(req.namespace).observe(
@@ -211,6 +215,7 @@ class PgVectorsClient:
             cursor = self.conn.execute(
                 self.querier.sparse_query(req.namespace),
                 (req.sparse_vector, req.limit),
+                binary=True,
             )
             results = cursor.fetchall()
             sparse_search_histogram.labels(req.namespace).observe(

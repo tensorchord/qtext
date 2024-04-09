@@ -59,6 +59,8 @@ class SparseEmbedding(msgspec.Struct, kw_only=True, frozen=True):
         return f"[{','.join(map(str, dense))}]"
 
     def to_bytes(self) -> bytes:
+        if len(self.indices) != len(self.values):
+            raise ValueError("indices and values must have the same length")
         return struct.pack(
             f"<II{len(self.indices)}I{len(self.values)}f",
             self.dim,
