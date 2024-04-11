@@ -4,28 +4,24 @@
 <a href="https://discord.gg/KqswhpVgdU"><img alt="discord invitation link" src="https://dcbadge.vercel.app/api/server/KqswhpVgdU?style=flat"></a>
 <a href="https://twitter.com/TensorChord"><img src="https://img.shields.io/twitter/follow/tensorchord?style=social" alt="trackgit-views" /></a>
 
-End-to-end service to query the text with hybrid search and rerank.
+QText is a microservices framework for building the RAG pipeline, or semantic search engine on top of Postgres. It provides a simple API to add, query, and highlight the text in your existing database.
 
-Application scenarios:
-- Personal knowledge database + search engine
-- Rerank experiment and visualization
-- RAG pipeline
+The main features include:
+
+- Full-text search with Postgres GIN index.
+- Vector and sparse search with [pgvecto.rs](https://github.com/tensorchord/pgvecto.rs)
+- Reranking with cross-encoder model, cohere reranking API, or other methods.
+- Semantic highlight
+
+Besides this, qtext also provides a dashboard to visualize the vector search, sparse vector search, full text search, and reranking results.
 
 [![asciicast](https://asciinema.org/a/653540.svg)](https://asciinema.org/a/653540)
 
-## Features
+## Design goals
 
-- [x] full text search (Postgres GIN + text search)
-- [x] vector similarity search ([pgvecto.rs](https://github.com/tensorchord/pgvecto.rs) HNSW)
-- [x] sparse search ([pgvecto.rs](https://github.com/tensorchord/pgvecto.rs) HNSW)
-- [x] generate vector and sparse vector if not provided
-- [x] reranking
-- [x] semantic highlight
-- [x] hybrid search explanation
-- [x] TUI
-- [x] OpenAPI
-- [x] OpenMetrics
-- [ ] filtering
+- **Simple**: easy to deploy and use.
+- **Customizable**: can be integrated into your existing databases.
+- **Extensible**: can be extended with new features.
 
 ## How to use
 
@@ -40,6 +36,10 @@ Some of the dependent services can be opt-out:
 - `sparse`: used to generate sparse embedding for query and documents (this requires a HuggingFace token that signed the agreement for [prithivida/Splade_PP_en_v1](https://huggingface.co/prithivida/Splade_PP_en_v1))
 - `highlight`: used to provide the semantic highlight feature
 - `encoder`: rerank with cross-encoder model, you can choose other methods or other online services
+
+<div align="center">
+<img src="./docs/images/arch.svg" alt="arch" width="500px">
+</div>
 
 For the client example, check:
 - [test.py](./test.py): simple demo.
